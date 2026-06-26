@@ -6,9 +6,41 @@
   "totalDiscount": 0,
   "serviceChargePercent": 0,
   "vatPercent": 0,
-  "items": [],
+  "items": [
+    {
+      "id": "p_mqv2e4vd_9rug10",
+      "name": "A",
+      "price": 400
+    },
+    {
+      "id": "p_mqv2efro_wqgidp",
+      "name": "B",
+      "price": 50
+    },
+    {
+      "id": "p_mqv2ekan_w2qo2e",
+      "name": "C",
+      "price": 20
+    },
+    {
+      "id": "p_mqv2eph3_w4fzzk",
+      "name": "D",
+      "price": 5
+    },
+    {
+      "id": "p_mqv2ev4p_tc2uos",
+      "name": "E",
+      "price": 250
+    },
+    {
+      "id": "p_mqv2f10u_l3atj7",
+      "name": "F",
+      "price": 125
+    }
+  ],
   "people": [],
   "shares": {},
   "createdAt": "2026-06-26T15:06:43.656Z",
-  "updatedAt": "2026-06-26T15:06:53.401Z"
+  "updatedAt": "2026-06-26T15:07:52.666Z",
+  "_sha": "de0a4b4b73848cea0971e3a2f2c76606379400b4"
 }
