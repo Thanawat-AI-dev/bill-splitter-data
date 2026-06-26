@@ -33,9 +33,26 @@
       "price": 120
     }
   ],
-  "people": [],
+  "people": [
+    {
+      "id": "p_mqv38usr_etzed3",
+      "name": "ก"
+    },
+    {
+      "id": "p_mqv38z93_h22sl3",
+      "name": "ข"
+    },
+    {
+      "id": "p_mqv392ih_fimco3",
+      "name": "ค"
+    },
+    {
+      "id": "p_mqv39425_s76r58",
+      "name": "ง"
+    }
+  ],
   "shares": {},
   "createdAt": "2026-06-26T15:29:25.884Z",
-  "updatedAt": "2026-06-26T15:30:49.351Z",
-  "_sha": "7a31299bd1394a088deb8683cc7e7bcff3a5863e"
+  "updatedAt": "2026-06-26T15:31:51.248Z",
+  "_sha": "965bd7ead1d70d3cefca54b7446b706b8877b56e"
 }
