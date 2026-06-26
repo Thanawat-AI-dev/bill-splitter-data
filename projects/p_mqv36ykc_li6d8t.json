@@ -6,9 +6,36 @@
   "totalDiscount": 400,
   "serviceChargePercent": 0,
   "vatPercent": 0,
-  "items": [],
+  "items": [
+    {
+      "id": "p_mqv37qp2_626vxi",
+      "name": "A",
+      "price": 500
+    },
+    {
+      "id": "p_mqv37wrp_vsk5hx",
+      "name": "B",
+      "price": 400
+    },
+    {
+      "id": "p_mqv384zj_xdphj4",
+      "name": "C",
+      "price": 300
+    },
+    {
+      "id": "p_mqv38bv3_qvwvps",
+      "name": "D",
+      "price": 50
+    },
+    {
+      "id": "p_mqv38h16_tpvi2a",
+      "name": "E",
+      "price": 120
+    }
+  ],
   "people": [],
   "shares": {},
   "createdAt": "2026-06-26T15:29:25.884Z",
-  "updatedAt": "2026-06-26T15:29:56.615Z"
+  "updatedAt": "2026-06-26T15:30:49.351Z",
+  "_sha": "7a31299bd1394a088deb8683cc7e7bcff3a5863e"
 }
