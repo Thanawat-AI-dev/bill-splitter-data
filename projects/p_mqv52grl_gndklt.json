@@ -28,9 +28,33 @@
       "price": 13
     }
   ],
-  "people": [],
-  "shares": {},
+  "people": [
+    {
+      "id": "p_mqv54n6u_irtvo6",
+      "name": "อรรถ1"
+    },
+    {
+      "id": "p_mqv54qt0_aha9cv",
+      "name": "อรรถ2"
+    }
+  ],
+  "shares": {
+    "p_mqv53lvf_85v1ut": [
+      "p_mqv54n6u_irtvo6",
+      "p_mqv54qt0_aha9cv"
+    ],
+    "p_mqv53tq7_d17k9i": [
+      "p_mqv54n6u_irtvo6"
+    ],
+    "p_mqv541us_jozzao": [
+      "p_mqv54qt0_aha9cv"
+    ],
+    "p_mqv5494i_a9x3pm": [
+      "p_mqv54n6u_irtvo6",
+      "p_mqv54qt0_aha9cv"
+    ]
+  },
   "createdAt": "2026-06-26T16:21:55.426Z",
-  "updatedAt": "2026-06-26T16:23:32.494Z",
-  "_sha": "8224a6702dca742e662f73273fa167f3ca236229"
+  "updatedAt": "2026-06-26T16:24:35.900Z",
+  "_sha": "20705e6cb8ec667391df078374629b2b37602df8"
 }
