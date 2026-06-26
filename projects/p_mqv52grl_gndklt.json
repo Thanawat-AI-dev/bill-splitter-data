@@ -6,9 +6,31 @@
   "totalDiscount": 300,
   "serviceChargePercent": 10,
   "vatPercent": 7,
-  "items": [],
+  "items": [
+    {
+      "id": "p_mqv53lvf_85v1ut",
+      "name": "มาม่า",
+      "price": 40
+    },
+    {
+      "id": "p_mqv53tq7_d17k9i",
+      "name": "มะขาม",
+      "price": 40
+    },
+    {
+      "id": "p_mqv541us_jozzao",
+      "name": "มะนาว",
+      "price": 100
+    },
+    {
+      "id": "p_mqv5494i_a9x3pm",
+      "name": "ไวไว",
+      "price": 13
+    }
+  ],
   "people": [],
   "shares": {},
   "createdAt": "2026-06-26T16:21:55.426Z",
-  "updatedAt": "2026-06-26T16:22:42.863Z"
+  "updatedAt": "2026-06-26T16:23:32.494Z",
+  "_sha": "8224a6702dca742e662f73273fa167f3ca236229"
 }
