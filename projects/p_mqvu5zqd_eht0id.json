@@ -6,10 +6,36 @@
   "totalDiscount": 582.5,
   "serviceChargePercent": 0,
   "vatPercent": 0,
-  "items": [],
+  "items": [
+    {
+      "id": "p_mqvubngs_63pcom",
+      "name": "น้ำแข็งใหญ่2",
+      "price": 53.57
+    },
+    {
+      "id": "p_mqvucf18_psbm0c",
+      "name": "โค้กใหญ่1",
+      "price": 30.13
+    },
+    {
+      "id": "p_mqvucnuo_w3luup",
+      "name": "ช้าง 1 โปร",
+      "price": 153.35
+    },
+    {
+      "id": "p_mqvucz4j_1f0ld9",
+      "name": "ชั่งกิโล",
+      "price": 937.06
+    },
+    {
+      "id": "p_mqvud9l8_xfllsj",
+      "name": "ไข่ไก่",
+      "price": 6.7
+    }
+  ],
   "people": [],
   "shares": {},
   "createdAt": "2026-06-27T04:04:30.373Z",
-  "updatedAt": "2026-06-27T04:08:45.106Z",
-  "_sha": "1cd27fdf0ab8862153890e07a025db2bfc944f17"
+  "updatedAt": "2026-06-27T04:10:38.673Z",
+  "_sha": "4ed061c493a38749647ccd39e8e62e76e92553b4"
 }
