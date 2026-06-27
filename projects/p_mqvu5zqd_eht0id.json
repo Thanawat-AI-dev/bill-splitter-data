@@ -55,8 +55,41 @@
       "name": "อิง"
     }
   ],
-  "shares": {},
+  "shares": {
+    "p_mqvubngs_63pcom": [
+      "p_mqvue6wy_iockpw",
+      "p_mqvue95m_rqrppc",
+      "p_mqvuec9q_w5okzv",
+      "p_mqvueet7_4oxrc8",
+      "p_mqvuehdj_927hmg"
+    ],
+    "p_mqvucf18_psbm0c": [
+      "p_mqvue6wy_iockpw",
+      "p_mqvue95m_rqrppc",
+      "p_mqvuec9q_w5okzv",
+      "p_mqvueet7_4oxrc8",
+      "p_mqvuehdj_927hmg"
+    ],
+    "p_mqvucz4j_1f0ld9": [
+      "p_mqvue6wy_iockpw",
+      "p_mqvue95m_rqrppc",
+      "p_mqvuec9q_w5okzv",
+      "p_mqvueet7_4oxrc8",
+      "p_mqvuehdj_927hmg"
+    ],
+    "p_mqvud9l8_xfllsj": [
+      "p_mqvue6wy_iockpw",
+      "p_mqvue95m_rqrppc",
+      "p_mqvuec9q_w5okzv",
+      "p_mqvueet7_4oxrc8",
+      "p_mqvuehdj_927hmg"
+    ],
+    "p_mqvucnuo_w3luup": [
+      "p_mqvue95m_rqrppc",
+      "p_mqvuehdj_927hmg"
+    ]
+  },
   "createdAt": "2026-06-27T04:04:30.373Z",
-  "updatedAt": "2026-06-27T04:12:18.056Z",
-  "_sha": "2381528f6b14161068f12592f948d003e49361a8"
+  "updatedAt": "2026-06-27T04:13:27.603Z",
+  "_sha": "e3eba5b85a304327b5ec5f79c063a5b993bc911b"
 }
