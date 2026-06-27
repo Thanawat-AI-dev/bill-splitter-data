@@ -18,9 +18,25 @@
       "price": 380
     }
   ],
-  "people": [],
-  "shares": {},
+  "people": [
+    {
+      "id": "p_mqwgci3k_igv706",
+      "name": "อรรถ"
+    },
+    {
+      "id": "p_mqwgck9x_k0so9j",
+      "name": "ออม"
+    }
+  ],
+  "shares": {
+    "p_mqwgbdz2_j9p941": [
+      "p_mqwgci3k_igv706"
+    ],
+    "p_mqwgbnxi_nmdoog": [
+      "p_mqwgck9x_k0so9j"
+    ]
+  },
   "createdAt": "2026-06-27T14:23:54.528Z",
-  "updatedAt": "2026-06-27T14:25:18.502Z",
-  "_sha": "64df73661b17593cb8726f224e382489e57fe65f"
+  "updatedAt": "2026-06-27T15:20:43.001Z",
+  "_sha": "cba750c164bfd53bad61a0cae26f7c9c5cc8d75c"
 }
