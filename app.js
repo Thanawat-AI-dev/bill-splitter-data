@@ -13,6 +13,7 @@
   const GH_API = "https://api.github.com";
   const PROJECTS_DIR = "projects";
   const INDEX_PATH = `${PROJECTS_DIR}/_index.json`;
+  const PEOPLE_POOL_PATH = "people/_saved.json";
   const SETTINGS_KEY = "billsplit_gh_settings";
   const THEME_KEY = "billsplit_theme";
   const DRAFT_KEY_PREFIX = "billsplit_draft_";
@@ -199,6 +200,27 @@
     const file = await ghGetFile(INDEX_PATH);
     indexCache = file ? { entries: file.content.entries || [], sha: file.sha } : { entries: [], sha: null };
     return indexCache;
+  }
+
+  // Reusable "saved people" pool — one shared list across all projects,
+  // stored at people/_saved.json in the same repo.
+  async function getSavedPeople() {
+    const file = await ghGetFile(PEOPLE_POOL_PATH);
+    return (file && file.content.names) || [];
+  }
+  async function addNamesToSavedPeople(names) {
+    const clean = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+    if (!clean.length) return [];
+    const { obj } = await ghPutFileWithRetry(
+      PEOPLE_POOL_PATH,
+      (current) => {
+        const existing = (current && current.names) || [];
+        const merged = [...new Set([...existing, ...clean])];
+        return { names: merged };
+      },
+      "update saved people list"
+    );
+    return obj.names;
   }
 
   async function saveProjectToGithub(project, summary) {
@@ -525,9 +547,17 @@
     }
     body.innerHTML = `
       <div class="section-title">รายการเมนู</div>
-      <div class="section-sub">กรอกชื่อเมนูและราคาตามใบเสร็จ</div>
+      <div class="section-sub">กรอกชื่อเมนูและราคาตามใบเสร็จ หรือนำเข้าจากไฟล์ที่ Claude อ่านจากรูปบิลให้</div>
       <div class="row-list" id="menu-rows">${rowsHtml()}</div>
-      <button class="btn ghost sm" id="add-item-btn" style="margin-bottom:16px;">+ เพิ่มเมนู</button>
+      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <button class="btn ghost sm" id="add-item-btn">+ เพิ่มเมนู</button>
+        <button class="btn ghost sm" id="import-json-btn">📥 นำเข้าจากไฟล์ (Claude อ่านจากรูปบิล)</button>
+        <input type="file" id="import-json-input" accept="application/json,.json" style="display:none;">
+      </div>
+      <div class="help-box" style="margin-bottom:16px;">
+        💡 อัปโหลดรูปบิลให้ Claude ในแชท แล้วขอให้ "อ่านเมนูจากรูปนี้" — Claude จะส่งไฟล์ .json กลับมาให้
+        กดปุ่ม "นำเข้าจากไฟล์" แล้วเลือกไฟล์นั้น รายการจะถูกเติมเข้าตารางด้านบนให้อัตโนมัติ
+      </div>
       <div id="menu-total">${totalLine()}</div>
     `;
     function wireRows() {
@@ -554,6 +584,32 @@
       body.querySelector("#menu-rows").innerHTML = rowsHtml();
       wireRows();
     };
+    body.querySelector("#import-json-btn").onclick = () => body.querySelector("#import-json-input").click();
+    body.querySelector("#import-json-input").onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const list = Array.isArray(parsed) ? parsed : parsed.items;
+        if (!Array.isArray(list) || !list.length) throw new Error("ไฟล์ไม่มีรายการเมนู (items)");
+        let added = 0;
+        list.forEach((it) => {
+          const name = String(it.name || it.ชื่อเมนู || "").trim();
+          const price = Number(it.price || it.ราคา || 0);
+          if (!name) return;
+          p.items.push({ id: uuid(), name, price: isFinite(price) ? price : 0 });
+          added++;
+        });
+        body.querySelector("#menu-rows").innerHTML = rowsHtml();
+        body.querySelector("#menu-total").innerHTML = totalLine();
+        wireRows();
+        toast(`นำเข้าเมนูสำเร็จ ${added} รายการ — ตรวจสอบราคาอีกครั้งก่อนไปขั้นต่อไป`);
+      } catch (err) {
+        toast("นำเข้าไฟล์ไม่สำเร็จ: " + err.message, true);
+      }
+      e.target.value = "";
+    };
     wizardFooter(body, stepIdx, {
       onSave: async () => {
         const valid = p.items.filter((it) => it.name.trim() && Number(it.price) > 0);
@@ -575,9 +631,10 @@
     }
     body.innerHTML = `
       <div class="section-title">รายชื่อคน</div>
-      <div class="section-sub">เพิ่มชื่อทุกคนที่ร่วมบิลนี้</div>
+      <div class="section-sub">เพิ่มชื่อทุกคนที่ร่วมบิลนี้ — ชื่อที่กรอกจะถูกบันทึกไว้ใช้ซ้ำในโปรเจกต์ถัดไปด้วย</div>
       <div class="row-list" id="people-rows">${rowsHtml()}</div>
       <button class="btn ghost sm" id="add-person-btn">+ เพิ่มคน</button>
+      <div id="saved-people-box" style="margin-top:18px;"></div>
     `;
     function wireRows() {
       body.querySelectorAll("#people-rows .row-item").forEach((row) => {
@@ -598,11 +655,44 @@
       body.querySelector("#people-rows").innerHTML = rowsHtml();
       wireRows();
     };
+
+    // --- Saved people pool (shared across all projects, stored on GitHub) ---
+    const savedBox = body.querySelector("#saved-people-box");
+    function renderSavedChips(names) {
+      const current = new Set(p.people.map((pp) => pp.name.trim()).filter(Boolean));
+      const available = names.filter((n) => !current.has(n));
+      if (!available.length) {
+        savedBox.innerHTML = names.length
+          ? `<div class="help-box">เพิ่มทุกคนจากรายชื่อที่บันทึกไว้ครบแล้ว ✅</div>` : "";
+        return;
+      }
+      savedBox.innerHTML = `
+        <div class="section-sub" style="margin-bottom:8px;">รายชื่อที่บันทึกไว้ (คลิกเพื่อเพิ่ม)</div>
+        <div class="chip-list">${available.map((n) => `<button class="chip" data-name="${escapeHtml(n)}">+ ${escapeHtml(n)}</button>`).join("")}</div>
+      `;
+      savedBox.querySelectorAll(".chip").forEach((chip) => {
+        chip.onclick = () => {
+          p.people.push({ id: uuid(), name: chip.dataset.name });
+          body.querySelector("#people-rows").innerHTML = rowsHtml();
+          wireRows();
+          renderSavedChips(names);
+        };
+      });
+    }
+    if (isConnected()) {
+      savedBox.innerHTML = `<div class="help-box">กำลังโหลดรายชื่อที่บันทึกไว้...</div>`;
+      getSavedPeople().then(renderSavedChips).catch(() => { savedBox.innerHTML = ""; });
+    }
+
     wizardFooter(body, stepIdx, {
       onSave: async () => {
         const valid = p.people.filter((pp) => pp.name.trim());
         if (!valid.length) { toast("กรุณาเพิ่มคนอย่างน้อย 1 คน", true); return false; }
-        return persistDraftAndMaybeGithub();
+        const ok = await persistDraftAndMaybeGithub();
+        if (ok && isConnected()) {
+          addNamesToSavedPeople(valid.map((pp) => pp.name)).catch(() => {});
+        }
+        return ok;
       },
     });
   }
@@ -616,13 +706,15 @@
     function countFor(itemId) { return (p.shares[itemId] || []).length; }
     function tableHtml() {
       return `<div class="matrix-wrap"><table class="matrix">
-        <thead><tr><th class="item-name-th">เมนู</th><th>ราคา</th>${people.map((pp) => `<th>${escapeHtml(pp.name)}</th>`).join("")}<th>หาร/คน</th></tr></thead>
+        <thead><tr><th class="item-name-th">เมนู</th><th>ราคา</th><th>ทุกคน</th>${people.map((pp) => `<th>${escapeHtml(pp.name)}</th>`).join("")}<th>หาร/คน</th></tr></thead>
         <tbody>${items.map((it) => {
           const sharers = p.shares[it.id] || [];
           const cnt = sharers.length;
+          const allChecked = people.length > 0 && cnt === people.length;
           return `<tr data-item="${it.id}">
             <td class="item-name-cell">${escapeHtml(it.name)}</td>
             <td class="item-price">฿${baht(it.price)}</td>
+            <td><input type="checkbox" class="row-all-cb" data-item="${it.id}" ${allChecked ? "checked" : ""} title="ทุกคนหารเมนูนี้"></td>
             ${people.map((pp) => `<td><input type="checkbox" data-item="${it.id}" data-person="${pp.id}" ${sharers.includes(pp.id) ? "checked" : ""}></td>`).join("")}
             <td><span class="share-count-tag ${cnt === 0 ? "zero" : ""}">${cnt} คน</span></td>
           </tr>`;
@@ -635,11 +727,11 @@
 
     body.innerHTML = `
       <div class="section-title">ใครกินอะไร</div>
-      <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ ระบบจะหารราคาเฉลี่ยเฉพาะคนที่ติ๊ก</div>
+      <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ หรือติ๊กคอลัมน์ "ทุกคน" เพื่อหารเมนูนั้นเท่ากันทุกคนในแถวเดียว</div>
       ${(!items.length || !people.length) ? `<div class="empty-state"><p>กรุณาเพิ่มเมนูและรายชื่อคนให้ครบก่อน</p></div>` : tableHtml()}
     `;
     function wire() {
-      body.querySelectorAll('input[type=checkbox][data-item]').forEach((cb) => {
+      body.querySelectorAll('input[type=checkbox][data-item][data-person]').forEach((cb) => {
         cb.onchange = () => {
           const itemId = cb.dataset.item, personId = cb.dataset.person;
           p.shares[itemId] = p.shares[itemId] || [];
@@ -653,6 +745,20 @@
           const tag = row.querySelector(".share-count-tag");
           tag.textContent = `${cnt} คน`;
           tag.classList.toggle("zero", cnt === 0);
+          const allCb = row.querySelector(".row-all-cb");
+          if (allCb) allCb.checked = people.length > 0 && cnt === people.length;
+        };
+      });
+      body.querySelectorAll('.row-all-cb').forEach((cb) => {
+        cb.onchange = () => {
+          const itemId = cb.dataset.item;
+          p.shares[itemId] = cb.checked ? people.map((pp) => pp.id) : [];
+          const row = cb.closest("tr");
+          row.querySelectorAll('input[type=checkbox][data-person]').forEach((pcb) => { pcb.checked = cb.checked; });
+          const cnt = p.shares[itemId].length;
+          const tag = row.querySelector(".share-count-tag");
+          tag.textContent = `${cnt} คน`;
+          tag.classList.toggle("zero", cnt === 0);
         };
       });
       const selAll = body.querySelector("#select-all-btn");
@@ -660,7 +766,7 @@
         items.forEach((it) => { p.shares[it.id] = people.map((pp) => pp.id); });
         body.innerHTML = `
           <div class="section-title">ใครกินอะไร</div>
-          <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ ระบบจะหารราคาเฉลี่ยเฉพาะคนที่ติ๊ก</div>
+          <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ หรือติ๊กคอลัมน์ "ทุกคน" เพื่อหารเมนูนั้นเท่ากันทุกคนในแถวเดียว</div>
           ${tableHtml()}`;
         wire();
         wizardFooter(body, stepIdx, footerOpts);
@@ -806,23 +912,22 @@
       const canvas = await html2canvas(captureEl, { scale: 2, backgroundColor: "#fdfaf2" });
       const { jsPDF } = window.jspdf;
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ unit: "pt", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW - 40;
-      const imgH = (canvas.height * imgW) / canvas.width;
-      let heightLeft = imgH, position = 20;
-      pdf.addImage(imgData, "PNG", 20, position, imgW, imgH);
-      heightLeft -= (pageH - 40);
-      while (heightLeft > 0) {
-        position = heightLeft - imgH + 20;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 20, position, imgW, imgH);
-        heightLeft -= (pageH - 40);
-      }
+
+      // ขนาดบิลแบบใบเสร็จร้านสะดวกซื้อจริง: กว้างคงที่ ~80mm ยาวเท่าที่
+      // เนื้อหาต้องการ รวมอยู่ในไฟล์เดียว หน้าเดียว ไม่ตัดแบ่งหน้า
+      const MM_TO_PT = 2.83465;
+      const pageWidthPt = 80 * MM_TO_PT; // ~226.77pt
+      const marginPt = 10;
+      const contentWidthPt = pageWidthPt - marginPt * 2;
+      const imgHeightPt = (canvas.height * contentWidthPt) / canvas.width;
+      const pageHeightPt = imgHeightPt + marginPt * 2;
+
+      const pdf = new jsPDF({ unit: "pt", format: [pageWidthPt, pageHeightPt] });
+      pdf.addImage(imgData, "PNG", marginPt, marginPt, contentWidthPt, imgHeightPt);
+
       const filename = `bill_${(project.name || "project").replace(/[^a-zA-Z0-9ก-๙_-]+/g, "_")}.pdf`;
       pdf.save(filename);
-      toast("ดาวน์โหลด PDF เรียบร้อย");
+      toast("ดาวน์โหลด PDF เรียบร้อย (ขนาดใบเสร็จ 80mm หน้าเดียว)");
     } catch (e) {
       console.error(e);
       toast("Export PDF ไม่สำเร็จ: " + e.message, true);
