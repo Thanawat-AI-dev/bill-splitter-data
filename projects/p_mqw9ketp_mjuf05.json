@@ -83,9 +83,90 @@
       "price": 59
     }
   ],
-  "people": [],
-  "shares": {},
+  "people": [
+    {
+      "id": "p_mqw9u0ci_or4ric",
+      "name": "A"
+    },
+    {
+      "id": "p_mqw9u3vu_11p9rz",
+      "name": "B"
+    },
+    {
+      "id": "p_mqw9u5qk_2dz6d8",
+      "name": "C"
+    }
+  ],
+  "shares": {
+    "p_mqw9tbv4_2vqes7": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_pjhjug": [
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_9usofg": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_8bpxu1": [
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_x7j2zc": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_kwf0pb": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_aa71b8": [
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_m3oe8t": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv4_jmyeby": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv5_38oaal": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv5_g0ewxy": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv5_hla82d": [
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv5_ndbcg1": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv5_aeeswt": [
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ],
+    "p_mqw9tbv5_fmwg5u": [
+      "p_mqw9u0ci_or4ric",
+      "p_mqw9u3vu_11p9rz",
+      "p_mqw9u5qk_2dz6d8"
+    ]
+  },
   "createdAt": "2026-06-27T11:15:37.357Z",
-  "updatedAt": "2026-06-27T11:22:59.099Z",
-  "_sha": "83336e1f4d3bfd359a6884ef5490c3d22af07c9c"
+  "updatedAt": "2026-06-27T11:25:15.999Z",
+  "_sha": "6800ba529c5ce5714622645df33ae9bc0f49e788"
 }
