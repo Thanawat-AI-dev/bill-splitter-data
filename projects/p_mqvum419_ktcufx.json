@@ -45,20 +45,25 @@
     {
       "id": "p_mqvupmpo_f06c4d",
       "name": "H",
-      "price": 72
+      "price": 75
     },
     {
       "id": "p_mqvuprxs_bywkhi",
       "name": "I",
-      "price": 98
+      "price": 72
     },
     {
       "id": "p_mqvupz3s_5soh2w",
       "name": "J",
-      "price": 245
+      "price": 98
     },
     {
       "id": "p_mqvuqeml_d7yr0j",
+      "name": "K",
+      "price": 245
+    },
+    {
+      "id": "p_mqvv1r8x_2zd161",
       "name": "vat",
       "price": 165.9
     }
@@ -101,8 +106,82 @@
       "name": "เมธ"
     }
   ],
-  "shares": {},
+  "shares": {
+    "p_mqvuo2ie_3wb09a": [
+      "p_mqvur87q_1iqbfn",
+      "p_mqvurhyj_091zjg",
+      "p_mqvurkv4_tc7iws",
+      "p_mqvurod9_ekjcv1",
+      "p_mqvurryp_prdsyh",
+      "p_mqvurv8g_nesrv0",
+      "p_mqvuryra_m6vrad",
+      "p_mqvus1ny_779wn5",
+      "p_mqvus4vp_lv9plc"
+    ],
+    "p_mqvuody2_0wxynm": [
+      "p_mqvus4vp_lv9plc",
+      "p_mqvur87q_1iqbfn",
+      "p_mqvurhyj_091zjg",
+      "p_mqvurkv4_tc7iws",
+      "p_mqvurod9_ekjcv1",
+      "p_mqvurryp_prdsyh",
+      "p_mqvurv8g_nesrv0",
+      "p_mqvuryra_m6vrad",
+      "p_mqvus1ny_779wn5"
+    ],
+    "p_mqvuol5w_sxr7sb": [
+      "p_mqvuryra_m6vrad",
+      "p_mqvurv8g_nesrv0",
+      "p_mqvurhyj_091zjg"
+    ],
+    "p_mqvuoqhj_dn1i7z": [
+      "p_mqvus4vp_lv9plc"
+    ],
+    "p_mqvuozin_ly16t3": [
+      "p_mqvur87q_1iqbfn",
+      "p_mqvurhyj_091zjg",
+      "p_mqvurkv4_tc7iws"
+    ],
+    "p_mqvup731_ezc57a": [
+      "p_mqvus4vp_lv9plc"
+    ],
+    "p_mqvupelf_6ky411": [
+      "p_mqvus4vp_lv9plc",
+      "p_mqvurkv4_tc7iws",
+      "p_mqvurryp_prdsyh"
+    ],
+    "p_mqvupmpo_f06c4d": [
+      "p_mqvus1ny_779wn5",
+      "p_mqvur87q_1iqbfn",
+      "p_mqvurod9_ekjcv1"
+    ],
+    "p_mqvuprxs_bywkhi": [
+      "p_mqvus1ny_779wn5",
+      "p_mqvurryp_prdsyh",
+      "p_mqvurhyj_091zjg",
+      "p_mqvurkv4_tc7iws"
+    ],
+    "p_mqvupz3s_5soh2w": [
+      "p_mqvur87q_1iqbfn"
+    ],
+    "p_mqvuqeml_d7yr0j": [
+      "p_mqvurhyj_091zjg",
+      "p_mqvurv8g_nesrv0",
+      "p_mqvuryra_m6vrad"
+    ],
+    "p_mqvv1r8x_2zd161": [
+      "p_mqvus4vp_lv9plc",
+      "p_mqvus1ny_779wn5",
+      "p_mqvuryra_m6vrad",
+      "p_mqvurv8g_nesrv0",
+      "p_mqvurryp_prdsyh",
+      "p_mqvurod9_ekjcv1",
+      "p_mqvurkv4_tc7iws",
+      "p_mqvurhyj_091zjg",
+      "p_mqvur87q_1iqbfn"
+    ]
+  },
   "createdAt": "2026-06-27T04:17:02.445Z",
-  "updatedAt": "2026-06-27T04:22:04.035Z",
-  "_sha": "eee40cc1be6f6d0ae5cdba5db0decec3533c3871"
+  "updatedAt": "2026-06-27T04:34:39.051Z",
+  "_sha": "c276321667e31aefda96b8e46e956817f1e7f35f"
 }
