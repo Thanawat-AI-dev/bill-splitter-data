@@ -6,9 +6,86 @@
   "totalDiscount": 0,
   "serviceChargePercent": 0,
   "vatPercent": 0,
-  "items": [],
+  "items": [
+    {
+      "id": "p_mqw9tbv4_2vqes7",
+      "name": "coke",
+      "price": 15
+    },
+    {
+      "id": "p_mqw9tbv4_pjhjug",
+      "name": "LEO",
+      "price": 69
+    },
+    {
+      "id": "p_mqw9tbv4_x7j2zc",
+      "name": "LEO 3 ขวด",
+      "price": 179
+    },
+    {
+      "id": "p_mqw9tbv4_9usofg",
+      "name": "soda",
+      "price": 15
+    },
+    {
+      "id": "p_mqw9tbv4_8bpxu1",
+      "name": "น้ำ (2 ขวด)",
+      "price": 30
+    },
+    {
+      "id": "p_mqw9tbv4_kwf0pb",
+      "name": "น้ำแข็ง (2)",
+      "price": 30
+    },
+    {
+      "id": "p_mqw9tbv4_aa71b8",
+      "name": "แซลมอนซาชิมิ",
+      "price": 139
+    },
+    {
+      "id": "p_mqw9tbv4_m3oe8t",
+      "name": "ต้มหัวปลาแซลมอน",
+      "price": 159
+    },
+    {
+      "id": "p_mqw9tbv4_jmyeby",
+      "name": "ต้มปลาคัง",
+      "price": 200
+    },
+    {
+      "id": "p_mqw9tbv5_38oaal",
+      "name": "ถั่วทอด",
+      "price": 39
+    },
+    {
+      "id": "p_mqw9tbv5_g0ewxy",
+      "name": "ยำตะไคร้กุ้งลวก",
+      "price": 89
+    },
+    {
+      "id": "p_mqw9tbv5_hla82d",
+      "name": "ยำแมงกะพรุน",
+      "price": 99
+    },
+    {
+      "id": "p_mqw9tbv5_ndbcg1",
+      "name": "สลัดกุ้งทอด/ลวก",
+      "price": 89
+    },
+    {
+      "id": "p_mqw9tbv5_aeeswt",
+      "name": "สลัดหมูย่าง",
+      "price": 89
+    },
+    {
+      "id": "p_mqw9tbv5_fmwg5u",
+      "name": "เอ็นไก่ทอด",
+      "price": 59
+    }
+  ],
   "people": [],
   "shares": {},
   "createdAt": "2026-06-27T11:15:37.357Z",
-  "updatedAt": "2026-06-27T11:16:13.643Z"
+  "updatedAt": "2026-06-27T11:22:59.099Z",
+  "_sha": "83336e1f4d3bfd359a6884ef5490c3d22af07c9c"
 }
