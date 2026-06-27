@@ -10,7 +10,7 @@
     {
       "id": "p_mqvuo2ie_3wb09a",
       "name": "A",
-      "price": 1174
+      "price": 1074
     },
     {
       "id": "p_mqvuody2_0wxynm",
@@ -182,6 +182,6 @@
     ]
   },
   "createdAt": "2026-06-27T04:17:02.445Z",
-  "updatedAt": "2026-06-27T04:34:39.051Z",
-  "_sha": "c276321667e31aefda96b8e46e956817f1e7f35f"
+  "updatedAt": "2026-06-27T04:36:28.264Z",
+  "_sha": "6d11b7c496548812036410ee934f05c2803da2df"
 }
