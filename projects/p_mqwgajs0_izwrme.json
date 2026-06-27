@@ -6,9 +6,21 @@
   "totalDiscount": 0,
   "serviceChargePercent": 10,
   "vatPercent": 0,
-  "items": [],
+  "items": [
+    {
+      "id": "p_mqwgbdz2_j9p941",
+      "name": "อรรถ",
+      "price": 350
+    },
+    {
+      "id": "p_mqwgbnxi_nmdoog",
+      "name": "ออม",
+      "price": 380
+    }
+  ],
   "people": [],
   "shares": {},
   "createdAt": "2026-06-27T14:23:54.528Z",
-  "updatedAt": "2026-06-27T14:24:17.748Z"
+  "updatedAt": "2026-06-27T14:25:18.502Z",
+  "_sha": "64df73661b17593cb8726f224e382489e57fe65f"
 }
