@@ -63,9 +63,46 @@
       "price": 165.9
     }
   ],
-  "people": [],
+  "people": [
+    {
+      "id": "p_mqvur87q_1iqbfn",
+      "name": "ออม"
+    },
+    {
+      "id": "p_mqvurhyj_091zjg",
+      "name": "อรรถ"
+    },
+    {
+      "id": "p_mqvurkv4_tc7iws",
+      "name": "ปุย"
+    },
+    {
+      "id": "p_mqvurod9_ekjcv1",
+      "name": "กัส"
+    },
+    {
+      "id": "p_mqvurryp_prdsyh",
+      "name": "บัส"
+    },
+    {
+      "id": "p_mqvurv8g_nesrv0",
+      "name": "อิง"
+    },
+    {
+      "id": "p_mqvuryra_m6vrad",
+      "name": "มิก"
+    },
+    {
+      "id": "p_mqvus1ny_779wn5",
+      "name": "ดัส"
+    },
+    {
+      "id": "p_mqvus4vp_lv9plc",
+      "name": "เมธ"
+    }
+  ],
   "shares": {},
   "createdAt": "2026-06-27T04:17:02.445Z",
-  "updatedAt": "2026-06-27T04:20:56.337Z",
-  "_sha": "ea302de7a10a5e24df49a8653b4711b6304f7228"
+  "updatedAt": "2026-06-27T04:22:04.035Z",
+  "_sha": "eee40cc1be6f6d0ae5cdba5db0decec3533c3871"
 }
