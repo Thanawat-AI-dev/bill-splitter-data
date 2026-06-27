@@ -5,11 +5,37 @@
   "place": "คริสปี้ครีม",
   "totalDiscount": 0,
   "serviceChargePercent": 0,
-  "vatPercent": 7,
-  "items": [],
+  "vatPercent": 0,
+  "items": [
+    {
+      "id": "p_mqwgvwen_a6gnos",
+      "name": "Original Glazed (101)",
+      "price": 58
+    },
+    {
+      "id": "p_mqwgvweo_hrvlx6",
+      "name": "Dozen Plus Box (20..)",
+      "price": 0
+    },
+    {
+      "id": "p_mqwgvweo_43mrdn",
+      "name": "Free Satch... (ฟรี)",
+      "price": 0
+    },
+    {
+      "id": "p_mqwgvweo_go7tqv",
+      "name": "1DZ Glazed (ฟรี)",
+      "price": 0
+    },
+    {
+      "id": "p_mqwgvweo_g4abr1",
+      "name": "Original Glazed (101) x12",
+      "price": 249
+    }
+  ],
   "people": [],
   "shares": {},
   "createdAt": "2026-06-27T14:39:30.642Z",
-  "updatedAt": "2026-06-27T14:40:07.411Z",
-  "_sha": "6495d85862e8a7f0749801f2a62c19489f66c8ea"
+  "updatedAt": "2026-06-27T14:41:12.938Z",
+  "_sha": "eefbe601e71fd03caccf499cdc5870b804227861"
 }
