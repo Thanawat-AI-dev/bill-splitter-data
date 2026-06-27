@@ -154,35 +154,67 @@
     return true;
   }
 
+  // Read-modify-write a file with automatic retry if the remote file changed
+  // (sha conflict) between our read and our write — e.g. multiple tabs/sessions
+  // editing at once, or a stale in-memory sha after a page reload.
+  async function ghPutFileWithRetry(path, buildObj, message, maxRetries = 4) {
+    let lastErr;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const file = await ghGetFile(path);
+      const obj = buildObj(file ? file.content : null);
+      try {
+        const result = await ghPutFile(path, obj, file ? file.sha : null, message);
+        return { obj, sha: result.content.sha };
+      } catch (e) {
+        lastErr = e;
+        const isShaConflict = /does not match|sha/i.test(e.message || "");
+        if (!isShaConflict) throw e; // some other error — don't retry blindly
+        // otherwise loop again: re-fetch the latest file and reapply buildObj
+      }
+    }
+    throw lastErr;
+  }
+
+  // Index file (projects/_index.json) read-modify-write with conflict retry.
+  async function updateProjectIndex({ upsert, removeId } = {}) {
+    const { obj, sha } = await ghPutFileWithRetry(
+      INDEX_PATH,
+      (current) => {
+        let entries = (current && current.entries) || [];
+        if (removeId) entries = entries.filter((e) => e.id !== removeId);
+        if (upsert) {
+          const i = entries.findIndex((e) => e.id === upsert.id);
+          if (i >= 0) entries[i] = upsert; else entries.unshift(upsert);
+        }
+        return { entries };
+      },
+      upsert ? `update index for ${upsert.name}` : `remove ${removeId} from index`
+    );
+    indexCache = { entries: obj.entries, sha };
+    return indexCache;
+  }
+
   async function getIndex(force) {
     if (indexCache && !force) return indexCache;
     const file = await ghGetFile(INDEX_PATH);
     indexCache = file ? { entries: file.content.entries || [], sha: file.sha } : { entries: [], sha: null };
     return indexCache;
   }
-  async function saveIndex() {
-    const result = await ghPutFile(INDEX_PATH, { entries: indexCache.entries }, indexCache.sha, "update projects index");
-    indexCache.sha = result.content.sha;
-  }
-  function upsertIndexEntry(project, summary) {
+
+  async function saveProjectToGithub(project, summary) {
+    project.updatedAt = new Date().toISOString();
+    const { sha } = await ghPutFileWithRetry(
+      `${PROJECTS_DIR}/${project.id}.json`,
+      () => project,
+      `save project ${project.name}`
+    );
+    project._sha = sha;
     const entry = {
       id: project.id, name: project.name, date: project.date, place: project.place || "",
       grandTotal: summary ? summary.grandTotal : 0, peopleCount: project.people.length,
-      updatedAt: new Date().toISOString(),
+      updatedAt: project.updatedAt,
     };
-    const i = indexCache.entries.findIndex((e) => e.id === project.id);
-    if (i >= 0) indexCache.entries[i] = entry; else indexCache.entries.unshift(entry);
-  }
-
-  async function saveProjectToGithub(project, summary) {
-    const file = await ghGetFile(`${PROJECTS_DIR}/${project.id}.json`).catch(() => null);
-    project.updatedAt = new Date().toISOString();
-    const result = await ghPutFile(`${PROJECTS_DIR}/${project.id}.json`, project, file ? file.sha : null,
-      `save project ${project.name}`);
-    project._sha = result.content.sha;
-    await getIndex();
-    upsertIndexEntry(project, summary);
-    await saveIndex();
+    await updateProjectIndex({ upsert: entry });
   }
 
   async function loadProjectFromGithub(id) {
@@ -196,9 +228,7 @@
   async function deleteProjectFromGithub(id) {
     const file = await ghGetFile(`${PROJECTS_DIR}/${id}.json`);
     if (file) await ghDeleteFile(`${PROJECTS_DIR}/${id}.json`, file.sha, `delete project ${id}`);
-    await getIndex();
-    indexCache.entries = indexCache.entries.filter((e) => e.id !== id);
-    await saveIndex();
+    await updateProjectIndex({ removeId: id });
   }
 
   // ---------------------------------------------------------------
