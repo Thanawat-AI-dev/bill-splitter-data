@@ -182,6 +182,13 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   width: 36px; height: 36px; border-radius: var(--radius-sm); cursor: pointer; flex: none;
 }
 
+.chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  background: var(--bg-surface-2); border: 1px solid var(--border-color); color: var(--text-primary);
+  padding: 7px 13px; border-radius: 999px; font-size: 0.8rem; cursor: pointer; transition: .15s ease;
+}
+.chip:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
 .wizard-footer { display: flex; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap; }
 
 /* Split matrix */
