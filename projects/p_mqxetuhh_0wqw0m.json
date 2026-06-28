@@ -68,9 +68,38 @@
       "price": 120
     }
   ],
-  "people": [],
+  "people": [
+    {
+      "id": "p_mqxevawd_lzfdp4",
+      "name": "ออม"
+    },
+    {
+      "id": "p_mqxevdhj_gqx3xe",
+      "name": "ดัส"
+    },
+    {
+      "id": "p_mqxevh3t_iogyza",
+      "name": "เฟิร์ส"
+    },
+    {
+      "id": "p_mqxevlsz_zkwq8e",
+      "name": "อรรถ"
+    },
+    {
+      "id": "p_mqxevpdv_iyuz4o",
+      "name": "กัส"
+    },
+    {
+      "id": "p_mqxew3vp_2pb9y5",
+      "name": "อิง"
+    },
+    {
+      "id": "p_mqxewf5h_f8bjkw",
+      "name": "มด"
+    }
+  ],
   "shares": {},
   "createdAt": "2026-06-28T06:30:41.813Z",
-  "updatedAt": "2026-06-28T06:31:29.371Z",
-  "_sha": "12417b8fefaff6f210ff735bf2f93e0690d11c19"
+  "updatedAt": "2026-06-28T06:33:11.605Z",
+  "_sha": "4fc1338f50873220517872eedeb492036b873b55"
 }
