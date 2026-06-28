@@ -2,7 +2,7 @@
   "id": "p_mqxetuhh_0wqw0m",
   "name": "ข้าวเที่ยงบางแสน",
   "date": "2026-06-28",
-  "place": "น้องนุ้น",
+  "place": "น้องนุ้ย",
   "totalDiscount": 0,
   "serviceChargePercent": 0,
   "vatPercent": 0,
@@ -190,6 +190,6 @@
     ]
   },
   "createdAt": "2026-06-28T06:30:41.813Z",
-  "updatedAt": "2026-06-28T06:50:27.759Z",
-  "_sha": "865d0a215da54f28b2a2305d8431cd4f8df8850a"
+  "updatedAt": "2026-06-28T06:52:37.839Z",
+  "_sha": "6f3a3cfb1c04d62848acf48ea42552cd5600f190"
 }
