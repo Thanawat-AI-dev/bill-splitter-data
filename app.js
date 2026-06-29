@@ -63,7 +63,36 @@
   function b64DecodeUnicode(str) {
     return decodeURIComponent(escape(atob(str)));
   }
+  function b64UrlEncode(str) {
+    return b64EncodeUnicode(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function b64UrlDecode(str) {
+    let normalized = String(str || "").replace(/-/g, "+").replace(/_/g, "/");
+    while (normalized.length % 4) normalized += "=";
+    return b64DecodeUnicode(normalized);
+  }
   function navigate(hash) { window.location.hash = hash; }
+  function normalizeProject(p) {
+    p.items = Array.isArray(p.items) ? p.items : [];
+    p.people = Array.isArray(p.people) ? p.people : [];
+    p.shares = p.shares || {};
+    p.doneBy = Array.isArray(p.doneBy) ? p.doneBy : [];
+    return p;
+  }
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
 
   // ---------------------------------------------------------------
   // Settings (GitHub connection) — stored only in this browser
@@ -242,7 +271,7 @@
   async function loadProjectFromGithub(id) {
     const file = await ghGetFile(`${PROJECTS_DIR}/${id}.json`);
     if (!file) throw new Error("ไม่พบโปรเจกต์นี้");
-    const p = file.content;
+    const p = normalizeProject(file.content);
     p._sha = file.sha;
     return p;
   }
@@ -253,6 +282,59 @@
     await updateProjectIndex({ removeId: id });
   }
 
+  async function updateGuestProject(projectId, updater, message) {
+    const { obj, sha } = await ghPutFileWithRetry(
+      `${PROJECTS_DIR}/${projectId}.json`,
+      (current) => {
+        const next = normalizeProject(current || currentProject);
+        updater(next);
+        next.updatedAt = new Date().toISOString();
+        return next;
+      },
+      message || `guest update ${projectId}`
+    );
+    currentProject = normalizeProject(obj);
+    currentProject._sha = sha;
+    saveDraftLocal(currentProject);
+    return currentProject;
+  }
+
+  function buildShareLink(project = currentProject) {
+    if (!project) throw new Error("ยังไม่มีโปรเจกต์ให้แชร์");
+    if (!isConnected()) throw new Error("กรุณาเชื่อมต่อ GitHub ก่อนสร้างลิงก์แชร์");
+    const base = `${window.location.origin}${window.location.pathname}`;
+    const parts = [
+      "guest",
+      project.id,
+      b64UrlEncode(settings.token),
+      b64UrlEncode(settings.owner),
+      b64UrlEncode(settings.repo),
+      b64UrlEncode(settings.branch || "main"),
+    ];
+    return `${base}#/${parts.join("/")}`;
+  }
+
+  async function shareProjectLink(project = currentProject) {
+    try {
+      const link = buildShareLink(project);
+      await copyText(link);
+      toast("คัดลอกลิงก์แชร์แล้ว");
+    } catch (e) {
+      toast(e.message || "สร้างลิงก์แชร์ไม่สำเร็จ", true);
+    }
+  }
+
+  function applyGuestSettings(parts) {
+    settings = {
+      token: b64UrlDecode(parts[2]),
+      owner: b64UrlDecode(parts[3]),
+      repo: b64UrlDecode(parts[4]),
+      branch: parts[5] ? b64UrlDecode(parts[5]) : "main",
+    };
+    indexCache = null;
+    updateGhStatus();
+  }
+
   // ---------------------------------------------------------------
   // Project model
   // ---------------------------------------------------------------
@@ -260,7 +342,7 @@
     return {
       id: uuid(), name: "", date: todayISO(), place: "",
       totalDiscount: 0, serviceChargePercent: 0, vatPercent: 0,
-      items: [], people: [], shares: {},
+      items: [], people: [], shares: {}, doneBy: [],
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
   }
@@ -269,7 +351,7 @@
   }
   function loadDraftLocal(id) {
     const raw = localStorage.getItem(DRAFT_KEY_PREFIX + id);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? normalizeProject(JSON.parse(raw)) : null;
   }
 
   // ---------------------------------------------------------------
@@ -333,6 +415,11 @@
   async function router() {
     const parts = parseHash();
     try {
+      if (parts[0] === "guest" && parts[1] && parts[2] && parts[3] && parts[4]) {
+        applyGuestSettings(parts);
+        await renderGuestMode(parts[1]);
+        return;
+      }
       if (parts[0] === "project" && parts[1] === "new") {
         currentProject = blankProject();
         saveDraftLocal(currentProject);
@@ -432,6 +519,198 @@
         <button class="btn-del" title="ลบ">🗑️</button>
       </div>
     </div>`;
+  }
+
+  // ---------------------------------------------------------------
+  // View: Guest self-select
+  // ---------------------------------------------------------------
+  async function renderGuestMode(projectId) {
+    const root = document.getElementById("view-root");
+    root.innerHTML = `<div class="guest-shell"><div class="empty-state">กำลังโหลดโปรเจกต์...</div></div>`;
+    currentProject = await loadProjectFromGithub(projectId);
+    saveDraftLocal(currentProject);
+
+    const guestKey = `billsplit_guest_${projectId}`;
+    const savedPersonId = localStorage.getItem(guestKey);
+    const savedPerson = currentProject.people.find((p) => p.id === savedPersonId);
+    if (savedPerson) renderGuestSplit(savedPerson.id);
+    else renderGuestNamePicker();
+
+    function shell(inner) {
+      root.innerHTML = `<div class="guest-shell">${inner}</div>`;
+    }
+
+    function doneSet() {
+      const validIds = new Set(currentProject.people.map((p) => p.id));
+      return new Set((currentProject.doneBy || []).filter((id) => validIds.has(id)));
+    }
+
+    function renderGuestNamePicker() {
+      const done = doneSet();
+      shell(`
+        <div class="card guest-card">
+          <div class="section-title">เลือกชื่อของคุณ</div>
+          <div class="section-sub">${escapeHtml(currentProject.name || "โปรเจกต์หารบิล")} · ${escapeHtml(currentProject.place || "")}</div>
+          <div class="guest-name-grid">
+            ${currentProject.people.filter((p) => p.name.trim()).map((p) => `
+              <button class="guest-name-card ${done.has(p.id) ? "done" : ""}" data-person="${p.id}">
+                <span>${escapeHtml(p.name)}</span>
+                <small>${done.has(p.id) ? "เลือกแล้ว" : "คลิกเพื่อเลือกเมนู"}</small>
+              </button>
+            `).join("")}
+          </div>
+        </div>
+      `);
+      root.querySelectorAll(".guest-name-card").forEach((card) => {
+        card.onclick = () => {
+          localStorage.setItem(guestKey, card.dataset.person);
+          renderGuestSplit(card.dataset.person);
+        };
+      });
+    }
+
+    function renderGuestSplit(personId) {
+      const p = currentProject;
+      const me = p.people.find((pp) => pp.id === personId);
+      if (!me) { renderGuestNamePicker(); return; }
+      if (doneSet().has(personId)) { renderGuestSummary(personId); return; }
+
+      const items = p.items.filter((it) => it.name.trim());
+      const people = p.people.filter((pp) => pp.name.trim());
+      shell(`
+        <div class="card guest-card">
+          <div class="toolbar-row">
+            <div>
+              <div class="section-title">เลือกเมนูของ ${escapeHtml(me.name)}</div>
+              <div class="section-sub">ติ๊กได้เฉพาะคอลัมน์ของคุณ ระบบจะบันทึกขึ้น GitHub ทันที</div>
+            </div>
+            <button class="btn ghost" id="guest-switch-name">เปลี่ยนชื่อ</button>
+          </div>
+          <div class="matrix-wrap"><table class="matrix guest-matrix">
+            <thead><tr><th class="item-name-th">เมนู</th><th>ราคา</th>${people.map((pp) => `<th class="${pp.id === personId ? "guest-my-col" : "guest-locked-col"}">${escapeHtml(pp.name)}</th>`).join("")}</tr></thead>
+            <tbody>${items.map((it) => {
+              const sharers = p.shares[it.id] || [];
+              return `<tr data-item="${it.id}">
+                <td class="item-name-cell">${escapeHtml(it.name)}</td>
+                <td class="item-price">฿${baht(it.price)}</td>
+                ${people.map((pp) => {
+                  const isMe = pp.id === personId;
+                  return `<td class="${isMe ? "guest-my-col" : "guest-locked-col"}">
+                    <input type="checkbox" data-item="${it.id}" data-person="${pp.id}" ${sharers.includes(pp.id) ? "checked" : ""} ${isMe ? "" : "disabled"}>
+                  </td>`;
+                }).join("")}
+              </tr>`;
+            }).join("")}</tbody>
+          </table></div>
+          <div class="wizard-footer">
+            <button class="btn ghost" id="guest-preview">ดูสรุปของฉัน</button>
+            <button class="btn primary" id="guest-confirm">✅ ยืนยันการเลือก</button>
+          </div>
+        </div>
+      `);
+
+      root.querySelector("#guest-switch-name").onclick = () => {
+        localStorage.removeItem(guestKey);
+        renderGuestNamePicker();
+      };
+      root.querySelector("#guest-preview").onclick = () => renderGuestSummary(personId);
+      root.querySelectorAll(`input[type=checkbox][data-person="${personId}"]`).forEach((cb) => {
+        cb.onchange = async () => {
+          cb.disabled = true;
+          const itemId = cb.dataset.item;
+          const checked = cb.checked;
+          try {
+            await updateGuestProject(projectId, (project) => {
+              project.shares[itemId] = project.shares[itemId] || [];
+              if (checked) {
+                if (!project.shares[itemId].includes(personId)) project.shares[itemId].push(personId);
+              } else {
+                project.shares[itemId] = project.shares[itemId].filter((pid) => pid !== personId);
+                project.doneBy = (project.doneBy || []).filter((pid) => pid !== personId);
+              }
+            }, `guest ${me.name} update shares`);
+            toast("บันทึกแล้ว");
+          } catch (e) {
+            cb.checked = !checked;
+            toast("บันทึกไม่สำเร็จ: " + e.message, true);
+          } finally {
+            cb.disabled = false;
+          }
+        };
+      });
+      root.querySelector("#guest-confirm").onclick = async () => {
+        try {
+          await updateGuestProject(projectId, (project) => {
+            project.doneBy = project.doneBy || [];
+            if (!project.doneBy.includes(personId)) project.doneBy.push(personId);
+          }, `guest ${me.name} confirmed`);
+          const missing = currentProject.people.filter((pp) => pp.name.trim() && !doneSet().has(pp.id)).length;
+          toast(missing ? `ยืนยันแล้ว รอเพื่อนอีก ${missing} คน` : "ทุกคนเลือกครบแล้ว");
+          renderGuestSummary(personId);
+        } catch (e) {
+          toast("ยืนยันไม่สำเร็จ: " + e.message, true);
+        }
+      };
+    }
+
+    function renderGuestSummary(personId) {
+      const p = currentProject;
+      const s = computeSummary(p);
+      const me = p.people.find((pp) => pp.id === personId);
+      const mine = s.people.find((pp) => pp.id === personId);
+      const done = doneSet();
+      const totalPeople = p.people.filter((pp) => pp.name.trim()).length;
+      const missing = Math.max(0, totalPeople - done.size);
+      const myLines = s.items.filter((it) => it.sharers.includes(personId))
+        .map((it) => `<div class="line"><span>${escapeHtml(it.name)}</span><span>฿${baht(it.perPerson)}</span></div>`).join("");
+
+      shell(`
+        <div class="card guest-card">
+          <div class="toolbar-row">
+            <div>
+              <div class="section-title">${missing ? `สรุปของ ${escapeHtml(me ? me.name : "")}` : "สรุปผลครบแล้ว"}</div>
+              <div class="section-sub">${missing ? `รอเพื่อนอีก ${missing} คน` : "ทุกคนยืนยันการเลือกครบแล้ว"}</div>
+            </div>
+            ${done.has(personId) ? "" : `<button class="btn ghost" id="guest-edit">กลับไปแก้ไข</button>`}
+          </div>
+          <div class="dash-grid">
+            <div class="card stat-card"><div class="stat-value">฿${baht(mine ? mine.total : 0)}</div><div class="stat-label">ยอดของฉัน</div></div>
+            <div class="card stat-card"><div class="stat-value">฿${baht(s.grandTotal)}</div><div class="stat-label">ยอดรวมทั้งบิล</div></div>
+            <div class="card stat-card"><div class="stat-value">${done.size}/${totalPeople}</div><div class="stat-label">ยืนยันแล้ว</div></div>
+          </div>
+          <div class="card personal-receipt" style="margin-bottom:20px;">
+            <h3 class="section-title" style="font-size:0.95rem;">รายละเอียดของฉัน</h3>
+            <div class="person-detail open">
+              ${myLines || "<em>ยังไม่ได้เลือกเมนู</em>"}
+              <div class="line"><span>ค่าบริการ+VAT ส่วนแบ่ง</span><span>฿${baht(mine ? mine.extra : 0)}</span></div>
+            </div>
+          </div>
+          <div id="guest-receipt-capture">
+            <div class="receipt">
+              <h3>${escapeHtml(p.place || "ใบเสร็จ")}</h3>
+              <div class="sub">${escapeHtml(p.name)} · ${escapeHtml(p.date || "")}</div>
+              <div class="divider"></div>
+              ${s.items.map((it) => `<div class="rline"><span>${escapeHtml(it.name)} (${it.sharers.length} คน)</span><span>฿${baht(it.priceAfter)}</span></div>`).join("")}
+              <div class="divider"></div>
+              <div class="rline"><span>ส่วนลดรวม</span><span>-฿${baht(s.totalDiscount)}</span></div>
+              <div class="rline"><span>ค่าบริการ (${p.serviceChargePercent || 0}%)</span><span>฿${baht(s.serviceCharge)}</span></div>
+              <div class="rline"><span>VAT (${p.vatPercent || 0}%)</span><span>฿${baht(s.vat)}</span></div>
+              <div class="divider"></div>
+              <div class="rline total"><span>รวมสุทธิ</span><span>฿${baht(s.grandTotal)}</span></div>
+              <div class="divider"></div>
+              ${s.people.map((pf) => `<div class="rline"><span>${escapeHtml(pf.name)}</span><span>฿${baht(pf.total)}</span></div>`).join("")}
+              <div class="barcode"></div>
+            </div>
+          </div>
+          <div class="wizard-footer">
+            <button class="btn ghost" id="guest-export-img">🖼️ Export รูปภาพ</button>
+          </div>
+        </div>
+      `);
+      const edit = root.querySelector("#guest-edit");
+      if (edit) edit.onclick = () => renderGuestSplit(personId);
+      root.querySelector("#guest-export-img").onclick = () => exportImage(p, root.querySelector("#guest-receipt-capture"));
+    }
   }
 
   // ---------------------------------------------------------------
@@ -726,10 +1005,19 @@
     }
 
     body.innerHTML = `
-      <div class="section-title">ใครกินอะไร</div>
-      <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ หรือติ๊กคอลัมน์ "ทุกคน" เพื่อหารเมนูนั้นเท่ากันทุกคนในแถวเดียว</div>
+      <div class="toolbar-row">
+        <div>
+          <div class="section-title">ใครกินอะไร</div>
+          <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ หรือติ๊กคอลัมน์ "ทุกคน" เพื่อหารเมนูนั้นเท่ากันทุกคนในแถวเดียว</div>
+        </div>
+        <button class="btn ghost" id="share-link-btn">📤 แชร์ลิงก์</button>
+      </div>
       ${(!items.length || !people.length) ? `<div class="empty-state"><p>กรุณาเพิ่มเมนูและรายชื่อคนให้ครบก่อน</p></div>` : tableHtml()}
     `;
+    body.querySelector("#share-link-btn").onclick = async () => {
+      const ok = await persistDraftAndMaybeGithub();
+      if (ok) shareProjectLink(p);
+    };
     function wire() {
       body.querySelectorAll('input[type=checkbox][data-item][data-person]').forEach((cb) => {
         cb.onchange = () => {
@@ -765,9 +1053,18 @@
       if (selAll) selAll.onclick = () => {
         items.forEach((it) => { p.shares[it.id] = people.map((pp) => pp.id); });
         body.innerHTML = `
-          <div class="section-title">ใครกินอะไร</div>
-          <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ หรือติ๊กคอลัมน์ "ทุกคน" เพื่อหารเมนูนั้นเท่ากันทุกคนในแถวเดียว</div>
+          <div class="toolbar-row">
+            <div>
+              <div class="section-title">ใครกินอะไร</div>
+              <div class="section-sub">ติ๊กเครื่องหมายคนที่กินเมนูนั้น ๆ หรือติ๊กคอลัมน์ "ทุกคน" เพื่อหารเมนูนั้นเท่ากันทุกคนในแถวเดียว</div>
+            </div>
+            <button class="btn ghost" id="share-link-btn">📤 แชร์ลิงก์</button>
+          </div>
           ${tableHtml()}`;
+        body.querySelector("#share-link-btn").onclick = async () => {
+          const ok = await persistDraftAndMaybeGithub();
+          if (ok) shareProjectLink(p);
+        };
         wire();
         wizardFooter(body, stepIdx, footerOpts);
       };
@@ -794,8 +1091,10 @@
       <div class="toolbar-row">
         <div><div class="section-title">สรุปผล — ${escapeHtml(p.name)}</div>
         <div class="section-sub">${escapeHtml(p.place || "")} · ${escapeHtml(p.date || "")}</div></div>
-        <div style="display:flex; gap:10px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn ghost" id="share-summary-btn">📤 แชร์ลิงก์</button>
           <button class="btn ghost" id="save-now-btn">💾 บันทึกขึ้น GitHub</button>
+          <button class="btn ghost" id="export-img-btn">🖼️ Export รูปภาพ</button>
           <button class="btn primary" id="export-pdf-btn">⬇️ Export PDF</button>
         </div>
       </div>
@@ -848,6 +1147,11 @@
       const ok = await persistDraftAndMaybeGithub();
       toast(ok ? "บันทึกขึ้น GitHub แล้ว" : "บันทึกไม่สำเร็จ", !ok);
     };
+    body.querySelector("#share-summary-btn").onclick = async () => {
+      const ok = await persistDraftAndMaybeGithub();
+      if (ok) shareProjectLink(p);
+    };
+    body.querySelector("#export-img-btn").onclick = () => exportImage(p, body.querySelector("#receipt-capture"));
     body.querySelector("#export-pdf-btn").onclick = () => exportPdf(p, body.querySelector("#receipt-capture"));
 
     renderCharts(s);
@@ -931,6 +1235,21 @@
     } catch (e) {
       console.error(e);
       toast("Export PDF ไม่สำเร็จ: " + e.message, true);
+    }
+  }
+
+  async function exportImage(project, captureEl) {
+    toast("กำลังสร้างรูปภาพ...");
+    try {
+      const canvas = await html2canvas(captureEl, { scale: 2, backgroundColor: "#fdfaf2" });
+      const link = document.createElement("a");
+      link.download = `bill_${(project.name || "project").replace(/[^a-zA-Z0-9ก-๙_-]+/g, "_")}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      toast("ดาวน์โหลดรูปภาพเรียบร้อย");
+    } catch (e) {
+      console.error(e);
+      toast("Export รูปภาพไม่สำเร็จ: " + e.message, true);
     }
   }
 
