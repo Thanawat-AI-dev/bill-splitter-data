@@ -1,53 +1,19 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>หารบิล — Bill Splitter</title>
-<meta name="description" content="แอปหารบิลแบบโปรเจกต์ บันทึกข้อมูลขึ้น GitHub สร้างแดชบอร์ดสรุป และ Export เป็น PDF">
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-</head>
-<body>
-  <div class="app-shell">
-
-    <header class="app-header">
-      <div class="brand">
-        <span class="brand-mark">🧾</span>
-        <div>
-          <h1>หารบิล</h1>
-          <p>สร้างโปรเจกต์คิดเงิน เก็บไว้บน GitHub ของคุณเอง</p>
+      <div class="settings-block">
+        <h3>Firebase Firestore (แนะนำ / ฟรี)</h3>
+        <p class="modal-hint">วาง Firebase web config จาก Firebase Console แล้วกดบันทึก ใช้กับลิงก์แชร์ให้เพื่อน</p>
+        <label>Firebase config JSON
+          <textarea id="set-firebase-config" rows="7" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}'></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" id="firebase-disconnect">ล้าง Firebase</button>
+          <button type="button" class="btn primary" id="firebase-save">บันทึก Firebase</button>
         </div>
+        <div class="settings-test-result" id="firebase-test-result"></div>
       </div>
-      <div class="header-actions">
-        <span class="gh-status" id="gh-status" title="สถานะการเชื่อมต่อ GitHub">
-          <span class="dot"></span><span class="gh-status-text">ยังไม่เชื่อมต่อ</span>
-        </span>
-        <button class="icon-btn" id="settings-btn" title="ตั้งค่า GitHub">⚙️</button>
-        <button class="icon-btn" id="theme-toggle" title="สลับธีมมืด/สว่าง">🌙</button>
-      </div>
-    </header>
-
-    <main id="view-root" class="view-root">
-      <!-- Rendered dynamically by app.js -->
-    </main>
-
-  </div>
-
-  <!-- Settings Modal -->
-  <div class="modal-overlay" id="settings-modal">
-    <div class="modal-card">
-      <div class="modal-card-head">
-        <h2>เชื่อมต่อ GitHub</h2>
-        <button class="icon-btn" id="settings-close">✕</button>
-      </div>
+      <div class="settings-divider"></div>
       <p class="modal-hint">
-        ข้อมูลโปรเจกต์ทั้งหมดจะถูกบันทึกเป็นไฟล์ JSON ในรีโพ GitHub ของคุณ ผ่าน GitHub REST API
-        โทเค็นจะถูกเก็บไว้ใน localStorage ของเบราว์เซอร์นี้เท่านั้น <strong>ไม่ถูกส่งไปที่อื่น</strong>
-        แนะนำให้สร้าง <em>Fine-grained Personal Access Token</em> ที่จำกัดสิทธิ์เฉพาะรีโพนี้
-        และให้สิทธิ์ "Contents: Read and write" เท่านั้น
+        GitHub mode เก็บโปรเจกต์เป็นไฟล์ JSON ในรีโพของคุณ โทเค็นจะอยู่ใน localStorage ของเบราว์เซอร์นี้เท่านั้น
+        และไม่ถูกใส่ในลิงก์แชร์แล้ว
       </p>
       <form id="settings-form">
         <label>Personal Access Token
