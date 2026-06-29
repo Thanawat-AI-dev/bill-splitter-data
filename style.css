@@ -202,6 +202,34 @@ table.matrix input[type=checkbox] { width: 18px; height: 18px; accent-color: var
 .share-count-tag { font-size: 0.7rem; padding: 2px 7px; border-radius: 999px; background: var(--teal-soft); color: var(--teal); }
 .share-count-tag.zero { background: rgba(248,113,113,0.15); color: var(--danger); }
 
+/* Guest self-select */
+.guest-shell { max-width: 980px; margin: 0 auto; }
+.guest-card { margin-bottom: 18px; }
+.guest-name-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px; margin-top: 18px;
+}
+.guest-name-card {
+  background: var(--bg-surface-2); border: 1px solid var(--border-color); color: var(--text-primary);
+  border-radius: var(--radius-sm); padding: 18px 16px; min-height: 92px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px;
+  text-align: left; transition: .15s ease; font-family: var(--font-body);
+}
+.guest-name-card:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+.guest-name-card span { font-size: 1.05rem; font-weight: 700; }
+.guest-name-card small { color: var(--text-secondary); font-size: 0.78rem; }
+.guest-name-card.done { border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.10); }
+.guest-name-card.done small { color: var(--success); }
+.guest-matrix .guest-my-col { background: var(--accent-soft); }
+.guest-matrix .guest-locked-col { opacity: 0.42; background: rgba(120,120,120,0.08); }
+.guest-matrix .guest-locked-col input { cursor: not-allowed; }
+.share-link-box {
+  border: 1px dashed var(--border-color); background: var(--bg-surface-2);
+  border-radius: var(--radius-sm); padding: 12px; color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 0.78rem; overflow-wrap: anywhere;
+}
+.personal-receipt .person-detail { display: block; }
+
 /* Summary dashboard */
 .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 14px; margin-bottom: 22px; }
 .stat-card .stat-value { font-family: var(--font-mono); font-size: 1.55rem; font-weight: 700; color: var(--accent); }
