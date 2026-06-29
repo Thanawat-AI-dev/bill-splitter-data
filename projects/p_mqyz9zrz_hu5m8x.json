@@ -1,0 +1,84 @@
+{
+  "id": "p_mqyz9zrz_hu5m8x",
+  "name": "Test save ชื่อ",
+  "date": "2026-06-29",
+  "place": "test",
+  "totalDiscount": 0,
+  "serviceChargePercent": 0,
+  "vatPercent": 0,
+  "items": [
+    {
+      "id": "p_mqyzar81_z7v3zx",
+      "name": "น้ำชุบหยำกุ้งสด",
+      "price": 180
+    },
+    {
+      "id": "p_mqyzar81_la3m7a",
+      "name": "หมูสามชั้นทอดน้ำปลา",
+      "price": 130
+    },
+    {
+      "id": "p_mqyzar81_09jx8h",
+      "name": "กุ้งจิ้วแช่น้ำปลา",
+      "price": 130
+    },
+    {
+      "id": "p_mqyzar81_q90saw",
+      "name": "ยำปลาดุกฟู",
+      "price": 120
+    },
+    {
+      "id": "p_mqyzar81_63fmum",
+      "name": "ข้าวผัดไข่เปล่าๆ",
+      "price": 50
+    },
+    {
+      "id": "p_mqyzar81_vn6bnh",
+      "name": "หมึกผัดไข่เค็ม",
+      "price": 150
+    },
+    {
+      "id": "p_mqyzar81_ma54y1",
+      "name": "ต้มยำเนื้อปลากะพง (น้ำใส)",
+      "price": 200
+    },
+    {
+      "id": "p_mqyzar81_le9qay",
+      "name": "ใบเหลียงผัดไข่",
+      "price": 100
+    },
+    {
+      "id": "p_mqyzar81_hk0vwo",
+      "name": "ข้าวเปล่าโก x2",
+      "price": 100
+    },
+    {
+      "id": "p_mqyzar81_5aoqhe",
+      "name": "น้ำแข็ง (ใหญ่)",
+      "price": 50
+    },
+    {
+      "id": "p_mqyzar81_ao0ilq",
+      "name": "น้ำอัดลม เล็ก (น้ำแดงแฟนต้า)",
+      "price": 20
+    },
+    {
+      "id": "p_mqyzar81_053m87",
+      "name": "น้ำอัดลม เล็ก โค้ก x6",
+      "price": 120
+    }
+  ],
+  "people": [
+    {
+      "id": "p_mqyzxjai_z0tpwa",
+      "name": "ดัส"
+    },
+    {
+      "id": "p_mqyzxk2o_a3opb1",
+      "name": "อรรถ"
+    }
+  ],
+  "shares": {},
+  "createdAt": "2026-06-29T08:50:53.664Z",
+  "updatedAt": "2026-06-29T09:09:15.409Z"
+}
