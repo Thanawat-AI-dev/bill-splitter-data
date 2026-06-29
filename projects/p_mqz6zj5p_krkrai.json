@@ -6,10 +6,112 @@
   "totalDiscount": 0,
   "serviceChargePercent": 0,
   "vatPercent": 0,
-  "items": [],
-  "people": [],
-  "shares": {},
+  "items": [
+    {
+      "id": "p_mqz7dqlb_5cydfz",
+      "name": "น้ำชุบหยำกุ้งสด",
+      "price": 180
+    },
+    {
+      "id": "p_mqz7dqlb_zzr1fc",
+      "name": "หมูสามชั้นทอดน้ำปลา",
+      "price": 130
+    },
+    {
+      "id": "p_mqz7dqlb_w41k0g",
+      "name": "กุ้งจิ้วแช่น้ำปลา",
+      "price": 130
+    },
+    {
+      "id": "p_mqz7dqlb_y24t9c",
+      "name": "ยำปลาดุกฟู",
+      "price": 120
+    },
+    {
+      "id": "p_mqz7dqlb_c8omel",
+      "name": "ข้าวผัดไข่เปล่าๆ",
+      "price": 50
+    },
+    {
+      "id": "p_mqz7dqlb_b302jw",
+      "name": "หมึกผัดไข่เค็ม",
+      "price": 150
+    },
+    {
+      "id": "p_mqz7dqlb_97vvrb",
+      "name": "ต้มยำเนื้อปลากะพง (น้ำใส)",
+      "price": 200
+    },
+    {
+      "id": "p_mqz7dqlb_axhl04",
+      "name": "ใบเหลียงผัดไข่",
+      "price": 100
+    },
+    {
+      "id": "p_mqz7dqlb_cb232n",
+      "name": "ข้าวเปล่าโก x2",
+      "price": 100
+    },
+    {
+      "id": "p_mqz7dqlb_pgz2jt",
+      "name": "น้ำแข็ง (ใหญ่)",
+      "price": 50
+    },
+    {
+      "id": "p_mqz7dqlb_n45nu7",
+      "name": "น้ำอัดลม เล็ก (น้ำแดงแฟนต้า)",
+      "price": 20
+    },
+    {
+      "id": "p_mqz7dqlb_5g8f1x",
+      "name": "น้ำอัดลม เล็ก โค้ก x6",
+      "price": 120
+    }
+  ],
+  "people": [
+    {
+      "id": "p_mqz7dhou_wo3r12",
+      "name": "ดัส"
+    },
+    {
+      "id": "p_mqz7dig4_36s59i",
+      "name": "อรรถ"
+    }
+  ],
+  "shares": {
+    "p_mqz7dqlb_5cydfz": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_zzr1fc": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_y24t9c": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_c8omel": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_b302jw": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_97vvrb": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_cb232n": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_pgz2jt": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_n45nu7": [
+      "p_mqz7dig4_36s59i"
+    ],
+    "p_mqz7dqlb_5g8f1x": [
+      "p_mqz7dig4_36s59i"
+    ]
+  },
   "createdAt": "2026-06-29T12:26:42.493Z",
-  "updatedAt": "2026-06-29T12:37:29.048Z",
-  "doneBy": []
+  "updatedAt": "2026-06-29T12:39:08.632Z",
+  "doneBy": [],
+  "_sha": "98d62fdda0738b0e4fb54ed43ec1e52d876a2e14"
 }
