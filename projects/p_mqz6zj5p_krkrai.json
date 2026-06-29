@@ -111,7 +111,9 @@
     ]
   },
   "createdAt": "2026-06-29T12:26:42.493Z",
-  "updatedAt": "2026-06-29T12:39:08.632Z",
-  "doneBy": [],
+  "updatedAt": "2026-06-29T12:39:33.758Z",
+  "doneBy": [
+    "p_mqz7dig4_36s59i"
+  ],
   "_sha": "98d62fdda0738b0e4fb54ed43ec1e52d876a2e14"
 }
