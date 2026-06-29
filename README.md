@@ -14,7 +14,27 @@
 index.html   หน้าเว็บหลัก
 style.css    ดีไซน์ (โทนใบเสร็จ/Glassmorphism มืด-สว่าง)
 app.js       ลอจิกทั้งหมด: wizard, การคำนวณ, GitHub API, กราฟ, Export PDF
+firestore.rules  กฎความปลอดภัย Firebase Firestore สำหรับโหมดแชร์หลายคน
+start-app.bat    เปิด local server สำหรับทดสอบบน Windows
 ```
+
+## โหมดเก็บข้อมูลฟรีที่แนะนำ
+
+### Firebase Firestore (แนะนำสำหรับแชร์ให้เพื่อน)
+โหมดแชร์หลายคนใช้ Firebase Firestore + Anonymous Auth เพื่อไม่ต้องฝัง GitHub token ในลิงก์ และรองรับหลายคนกดพร้อมกันได้ดีกว่าการแก้ไฟล์ JSON บน GitHub
+
+ขั้นตอน:
+1. สร้าง Firebase project ด้วยแผน Spark (ฟรี)
+2. เปิด Firestore Database
+3. เปิด Authentication → Sign-in method → Anonymous
+4. Project settings → Your apps → Web app → คัดลอก Firebase config
+5. ในแอป กด ⚙️ แล้ววาง config ในช่อง Firebase
+6. นำเนื้อหา `firestore.rules` ไปวางใน Firestore Rules แล้ว Publish
+
+หลังจากตั้งค่า Firebase แล้ว ปุ่ม “แชร์ลิงก์” จะสร้างลิงก์ที่ไม่มี secret/token อยู่ใน URL
+
+### GitHub mode
+ยังใช้ได้สำหรับเก็บข้อมูลเป็น JSON ในรีโพส่วนตัว แต่โหมด guest share จะไม่ฝัง GitHub token ในลิงก์อีกแล้วเพื่อความปลอดภัย
 
 ## วิธีใช้งาน (ครั้งแรก)
 
