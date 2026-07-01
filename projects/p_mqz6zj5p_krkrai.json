@@ -76,6 +76,10 @@
     {
       "id": "p_mqz7dig4_36s59i",
       "name": "อรรถ"
+    },
+    {
+      "id": "p_mr1vvpbc_stjgkg",
+      "name": "อิง"
     }
   ],
   "shares": {
@@ -112,7 +116,7 @@
     ]
   },
   "createdAt": "2026-06-29T12:26:42.493Z",
-  "updatedAt": "2026-06-29T13:54:48.473Z",
+  "updatedAt": "2026-07-01T09:39:08.103Z",
   "doneBy": [
     "p_mqz7dig4_36s59i"
   ],
