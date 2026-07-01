@@ -70,15 +70,17 @@
   ],
   "people": [
     {
-      "id": "p_mqyzxjai_z0tpwa",
-      "name": "ดัส"
-    },
-    {
       "id": "p_mqyzxk2o_a3opb1",
       "name": "อรรถ"
+    },
+    {
+      "id": "p_mr1vx7rv_dftg1k",
+      "name": "อิง"
     }
   ],
   "shares": {},
   "createdAt": "2026-06-29T08:50:53.664Z",
-  "updatedAt": "2026-06-29T09:09:15.409Z"
+  "updatedAt": "2026-07-01T09:40:21.688Z",
+  "doneBy": [],
+  "_sha": "97f50e8457e74ba965431ead72f5b27d536f0682"
 }
