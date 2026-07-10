@@ -81,6 +81,14 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
   let indexCache = null;                  // {entries:[...], sha}
   let currentProject = null;              // working project object
   let chartRefs = {};                     // chart.js instances to destroy on re-render
+  let activeSnapshotUnsub = null;         // unsubscribe fn for the current onSnapshot listener, if any
+
+  function stopLiveSync() {
+    if (activeSnapshotUnsub) {
+      try { activeSnapshotUnsub(); } catch { /* ignore */ }
+      activeSnapshotUnsub = null;
+    }
+  }
 
   // ---------------------------------------------------------------
   // Utilities
@@ -131,6 +139,7 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
     if (p.ownerUid) p.ownerUid = String(p.ownerUid);
     if (p.ownerEmail) p.ownerEmail = String(p.ownerEmail);
     p.guestAccess = !!p.guestAccess;
+    p.guestLocked = !!p.guestLocked;
     p.name = String(p.name || "");
     p.date = String(p.date || todayISO());
     p.place = String(p.place || "");
@@ -219,6 +228,9 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
   function isAdmin() {
     return currentUserProfile && currentUserProfile.role === "admin";
   }
+  function isGuestUser() {
+    return !!(currentUser && currentUser.isAnonymous);
+  }
   async function loadBundledFirebaseConfig() {
     if (isFirebaseConnected()) return firebaseSettings;
     const res = await fetch("firebase-config.json", { cache: "no-store" });
@@ -236,6 +248,13 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
     const adminBtn = document.getElementById("admin-btn");
     const logoutBtn = document.getElementById("logout-btn");
     el.classList.remove("connected", "error");
+    if (currentUser && isGuestUser()) {
+      el.classList.add("connected");
+      text.textContent = "โหมดเกส (ไม่ต้องเข้าสู่ระบบ)";
+      if (adminBtn) adminBtn.style.display = "none";
+      if (logoutBtn) logoutBtn.style.display = "none";
+      return;
+    }
     if (currentUser) {
       el.classList.add("connected");
       text.textContent = `${currentUser.email || "บัญชีผู้ใช้"}${isAdmin() ? " · Admin" : ""}`;
@@ -461,6 +480,38 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
     updateGhStatus();
     return currentUser;
   }
+  // Guests never need an email/password account — they only need *some*
+  // Firebase Auth session so Firestore rules can identify them as
+  // "signed in" and let them write their own picks. Anonymous Auth gives
+  // us that with zero signup friction. We deliberately skip
+  // loadUserProfile() here so a stray `users/{uid}` doc isn't created for
+  // every one-off guest visit.
+  async function ensureGuestSession() {
+    await loadBundledFirebaseConfig();
+    const rt = await getFirebaseRuntime();
+    if (!currentUser) {
+      currentUser = await new Promise((resolve) => {
+        const unsub = rt.onAuthStateChanged(rt.auth, (user) => {
+          unsub();
+          resolve(user);
+        });
+      });
+    }
+    if (!currentUser) {
+      if (!rt.signInAnonymously) {
+        throw new Error("Anonymous Authentication ยังไม่ได้เปิดใช้งานใน Firebase Console");
+      }
+      const cred = await rt.signInAnonymously(rt.auth);
+      currentUser = cred.user;
+    }
+    // Guests keep no elevated profile/role, regardless of whether the
+    // session turned out to be anonymous or a previously-logged-in owner
+    // account opening their own share link.
+    if (isGuestUser()) currentUserProfile = null;
+    updateGhStatus();
+    return currentUser;
+  }
+
   async function signInWithEmail(email, password) {
     const rt = await getFirebaseRuntime();
     await rt.signInWithEmailAndPassword(rt.auth, email, password);
@@ -711,16 +762,22 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
 
   async function router() {
     const parts = parseHash();
+    stopLiveSync();
     try {
+      if (parts[0] === "guest" && parts[1]) {
+        applyGuestSettings(parts);
+        try {
+          await ensureGuestSession();
+        } catch (e) {
+          renderGuestSessionError(e);
+          return;
+        }
+        await renderGuestMode(parts[1]);
+        return;
+      }
       if (!isFirebaseConnected()) await loadBundledFirebaseConfig();
       if (!currentUser && !["login"].includes(parts[0])) {
         await refreshAuthState();
-      }
-      if (parts[0] === "guest" && parts[1]) {
-        applyGuestSettings(parts);
-        if (!currentUser) { renderAuthGate(window.location.hash); return; }
-        await renderGuestMode(parts[1]);
-        return;
       }
       if (parts[0] === "login") {
         renderAuthGate();
@@ -812,6 +869,22 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
       runAuth("login");
     };
     root.querySelector("#auth-register-btn").onclick = () => runAuth("register");
+  }
+
+  function renderGuestSessionError(e) {
+    const root = document.getElementById("view-root");
+    root.innerHTML = `<div class="guest-shell">
+      <div class="card guest-card">
+        <div class="section-title">เข้าร่วมหารบิลไม่สำเร็จ</div>
+        <div class="section-sub">${escapeHtml((e && e.message) || "เกิดข้อผิดพลาด")}</div>
+        <div class="help-box">💡 ถ้าเจ้าของโปรเจกต์เห็นข้อความนี้แจ้งมา ให้ตรวจว่าเปิด
+          <strong>Anonymous</strong> ไว้ใน Firebase Console → Authentication → Sign-in method แล้วหรือยัง</div>
+        <div class="wizard-footer">
+          <button class="btn primary" id="guest-retry-btn">ลองใหม่</button>
+        </div>
+      </div>
+    </div>`;
+    root.querySelector("#guest-retry-btn").onclick = () => router();
   }
 
   async function renderAdmin() {
@@ -950,11 +1023,21 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
     const guestKey = `billsplit_guest_${projectId}`;
     const savedPersonId = localStorage.getItem(guestKey);
     const savedPerson = currentProject.people.find((p) => p.id === savedPersonId);
-    if (savedPerson) renderGuestSplit(savedPerson.id);
-    else renderGuestNamePicker();
+    let currentView = savedPerson ? { type: "split", personId: savedPerson.id } : { type: "picker" };
+    let guestSyncError = null;
 
     function shell(inner) {
-      root.innerHTML = `<div class="guest-shell">${inner}</div>`;
+      root.innerHTML = `<div class="guest-shell">${guestSyncError ? syncErrorBannerHtml() : ""}${inner}</div>`;
+      const retryBtn = root.querySelector("#guest-sync-retry");
+      if (retryBtn) retryBtn.onclick = () => { guestSyncError = null; renderCurrentView(); };
+    }
+
+    function syncErrorBannerHtml() {
+      return `<div class="card" style="border-color:var(--danger); margin-bottom:14px;">
+        <strong>⚠️ ซิงก์ข้อมูลล้มเหลว</strong>
+        <div class="section-sub">${escapeHtml(guestSyncError)}</div>
+        <button class="btn ghost sm" id="guest-sync-retry" style="margin-top:8px;">ลองใหม่</button>
+      </div>`;
     }
 
     function doneSet() {
@@ -962,20 +1045,61 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
       return new Set((currentProject.doneBy || []).filter((id) => validIds.has(id)));
     }
 
+    function renderCurrentView() {
+      if (currentView.type === "picker") renderGuestNamePicker();
+      else if (currentView.type === "split") renderGuestSplit(currentView.personId);
+      else renderGuestSummary(currentView.personId);
+    }
+
+    // Realtime sync: reflect what other guests (and the owner) do without
+    // needing a manual refresh. Falls back gracefully — if this fails to
+    // attach, writes/reads still work, they just won't be live.
+    try {
+      const rt = await getFirebaseRuntime(firebaseSettings);
+      stopLiveSync();
+      activeSnapshotUnsub = rt.onSnapshot(
+        firebaseProjectRef(rt, projectId),
+        (snap) => {
+          if (!snap.exists()) return;
+          currentProject = normalizeProject(snap.data().project || {});
+          saveDraftLocal(currentProject);
+          renderCurrentView();
+        },
+        (err) => {
+          guestSyncError = "หลุดการเชื่อมต่อแบบเรียลไทม์: " + (err.message || err);
+          renderCurrentView();
+        }
+      );
+    } catch (e) {
+      console.error(e);
+    }
+
+    renderCurrentView();
+
     function renderGuestNamePicker() {
+      currentView = { type: "picker" };
       const done = doneSet();
+      const people = currentProject.people.filter((p) => p.name.trim());
+      const nameCounts = {};
+      people.forEach((p) => {
+        const key = p.name.trim();
+        nameCounts[key] = (nameCounts[key] || 0) + 1;
+      });
+      const hasDup = Object.values(nameCounts).some((c) => c > 1);
       shell(`
         <div class="card guest-card">
           <div class="section-title">เลือกชื่อของคุณ</div>
           <div class="section-sub">${escapeHtml(currentProject.name || "โปรเจกต์หารบิล")} · ${escapeHtml(currentProject.place || "")}</div>
           <div class="guest-name-grid">
-            ${currentProject.people.filter((p) => p.name.trim()).map((p) => `
-              <button class="guest-name-card ${done.has(p.id) ? "done" : ""}" data-person="${p.id}">
-                <span>${escapeHtml(p.name)}</span>
+            ${people.map((p) => {
+              const isDup = nameCounts[p.name.trim()] > 1;
+              return `<button class="guest-name-card ${done.has(p.id) ? "done" : ""}" data-person="${p.id}">
+                <span>${escapeHtml(p.name)}${isDup ? ` <small style="opacity:.6;">#${escapeHtml(p.id.slice(-4))}</small>` : ""}</span>
                 <small>${done.has(p.id) ? "เลือกแล้ว" : "คลิกเพื่อเลือกเมนู"}</small>
-              </button>
-            `).join("")}
+              </button>`;
+            }).join("")}
           </div>
+          ${hasDup ? `<div class="help-box">💡 มีชื่อซ้ำกันในรายชื่อ — ถ้าไม่แน่ใจว่าใบไหนคือของคุณ ให้ถามเจ้าของโปรเจกต์ (สังเกตรหัสต่อท้ายชื่อ)</div>` : ""}
         </div>
       `);
       root.querySelectorAll(".guest-name-card").forEach((card) => {
@@ -990,7 +1114,8 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
       const p = currentProject;
       const me = p.people.find((pp) => pp.id === personId);
       if (!me) { renderGuestNamePicker(); return; }
-      if (doneSet().has(personId)) { renderGuestSummary(personId); return; }
+      if (doneSet().has(personId) || p.guestLocked) { renderGuestSummary(personId); return; }
+      currentView = { type: "split", personId };
 
       const items = p.items.filter((it) => it.name.trim());
       const people = p.people.filter((pp) => pp.name.trim());
@@ -999,7 +1124,7 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
           <div class="toolbar-row">
             <div>
               <div class="section-title">เลือกเมนูของ ${escapeHtml(me.name)}</div>
-              <div class="section-sub">ติ๊กได้เฉพาะคอลัมน์ของคุณ ระบบจะบันทึกขึ้น GitHub ทันที</div>
+              <div class="section-sub">ติ๊กได้เฉพาะคอลัมน์ของคุณ ระบบบันทึกให้ทันทีที่ติ๊ก</div>
             </div>
             <button class="btn ghost" id="guest-switch-name">เปลี่ยนชื่อ</button>
           </div>
@@ -1046,10 +1171,14 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
                 project.doneBy = (project.doneBy || []).filter((pid) => pid !== personId);
               }
             }, `guest ${me.name} update shares`, firebaseSettings);
+            guestSyncError = null;
             toast("บันทึกแล้ว");
           } catch (e) {
             cb.checked = !checked;
-            toast("บันทึกไม่สำเร็จ: " + e.message, true);
+            guestSyncError = e.message || "บันทึกไม่สำเร็จ";
+            toast("บันทึกไม่สำเร็จ: " + guestSyncError, true);
+            renderGuestSplit(personId);
+            return;
           } finally {
             cb.disabled = false;
           }
@@ -1061,23 +1190,28 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
             project.doneBy = project.doneBy || [];
             if (!project.doneBy.includes(personId)) project.doneBy.push(personId);
           }, `guest ${me.name} confirmed`, firebaseSettings);
+          guestSyncError = null;
           const missing = currentProject.people.filter((pp) => pp.name.trim() && !doneSet().has(pp.id)).length;
           toast(missing ? `ยืนยันแล้ว รอเพื่อนอีก ${missing} คน` : "ทุกคนเลือกครบแล้ว");
           renderGuestSummary(personId);
         } catch (e) {
-          toast("ยืนยันไม่สำเร็จ: " + e.message, true);
+          guestSyncError = e.message || "ยืนยันไม่สำเร็จ";
+          toast("ยืนยันไม่สำเร็จ: " + guestSyncError, true);
+          renderGuestSplit(personId);
         }
       };
     }
 
     function renderGuestSummary(personId) {
       const p = currentProject;
+      currentView = { type: "summary", personId };
       const s = computeSummary(p);
       const me = p.people.find((pp) => pp.id === personId);
       const mine = s.people.find((pp) => pp.id === personId);
       const done = doneSet();
       const totalPeople = p.people.filter((pp) => pp.name.trim()).length;
       const missing = Math.max(0, totalPeople - done.size);
+      const locked = !!p.guestLocked && !done.has(personId);
       const myLines = s.items.filter((it) => it.sharers.includes(personId))
         .map((it) => `<div class="line"><span>${escapeHtml(it.name)}</span><span>฿${baht(it.perPerson)}</span></div>`).join("");
 
@@ -1086,10 +1220,11 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
           <div class="toolbar-row">
             <div>
               <div class="section-title">${missing ? `สรุปของ ${escapeHtml(me ? me.name : "")}` : "สรุปผลครบแล้ว"}</div>
-              <div class="section-sub">${missing ? `รอเพื่อนอีก ${missing} คน` : "ทุกคนยืนยันการเลือกครบแล้ว"}</div>
+              <div class="section-sub">${missing ? `รอเพื่อนอีก ${missing} คน · จะอัปเดตให้อัตโนมัติ` : "ทุกคนยืนยันการเลือกครบแล้ว"}</div>
             </div>
-            ${done.has(personId) ? "" : `<button class="btn ghost" id="guest-edit">กลับไปแก้ไข</button>`}
+            ${(!done.has(personId) && !p.guestLocked) ? `<button class="btn ghost" id="guest-edit">กลับไปแก้ไข</button>` : ""}
           </div>
+          ${locked ? `<div class="badge warn" style="display:inline-block;margin-bottom:14px;">🔒 เจ้าของโปรเจกต์ปิดรับการแก้ไขจากเพื่อนแล้ว</div>` : ""}
           <div class="dash-grid">
             <div class="card stat-card"><div class="stat-value">฿${baht(mine ? mine.total : 0)}</div><div class="stat-label">ยอดของฉัน</div></div>
             <div class="card stat-card"><div class="stat-value">฿${baht(s.grandTotal)}</div><div class="stat-label">ยอดรวมทั้งบิล</div></div>
@@ -1541,6 +1676,8 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
   function stepSummary(body, stepIdx) {
     const p = currentProject;
     const s = computeSummary(p);
+    const totalPeople = p.people.filter((pp) => pp.name.trim()).length;
+    const doneCount = new Set((p.doneBy || []).filter((id) => p.people.some((pp) => pp.id === id))).size;
 
     body.innerHTML = `
       <div class="toolbar-row">
@@ -1548,6 +1685,7 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
         <div class="section-sub">${escapeHtml(p.place || "")} · ${escapeHtml(p.date || "")}</div></div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn ghost" id="share-summary-btn">📤 แชร์ลิงก์</button>
+          ${p.guestAccess ? `<button class="btn ghost" id="guest-lock-btn">${p.guestLocked ? "🔓 เปิดรับการแก้ไขอีกครั้ง" : "🔒 ปิดรับการแก้ไขจากเกส"}</button>` : ""}
           <button class="btn ghost" id="save-now-btn">💾 บันทึก</button>
           <button class="btn ghost" id="export-img-btn">🖼️ Export รูปภาพ</button>
           <button class="btn primary" id="export-pdf-btn">⬇️ Export PDF</button>
@@ -1555,6 +1693,7 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
       </div>
 
       ${s.unassignedItems.length ? `<div class="badge warn" style="display:inline-block;margin-bottom:14px;">⚠️ มี ${s.unassignedItems.length} เมนูที่ยังไม่ระบุคนหาร — ยอดรวมอาจไม่ครบ</div>` : ""}
+      ${p.guestAccess ? `<div class="badge ${doneCount >= totalPeople && totalPeople > 0 ? "ok" : "warn"}" style="display:inline-block;margin-bottom:14px;margin-left:8px;" id="guest-progress-badge">👥 เกสยืนยันแล้ว ${doneCount}/${totalPeople} คน${p.guestLocked ? " · ปิดรับการแก้ไขแล้ว" : " · อัปเดตสด"}</div>` : ""}
 
       <div class="dash-grid">
         <div class="card stat-card"><div class="stat-value">฿${baht(s.grandTotal)}</div><div class="stat-label">ยอดรวมสุทธิ</div></div>
@@ -1606,11 +1745,40 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
       const ok = await persistDraftAndMaybeGithub();
       if (ok) shareProjectLink(p);
     };
+    const lockBtn = body.querySelector("#guest-lock-btn");
+    if (lockBtn) lockBtn.onclick = async () => {
+      p.guestLocked = !p.guestLocked;
+      const ok = await persistDraftAndMaybeGithub();
+      toast(ok ? (p.guestLocked ? "ปิดรับการแก้ไขจากเกสแล้ว" : "เปิดให้เกสแก้ไขได้อีกครั้ง") : "บันทึกไม่สำเร็จ", !ok);
+      renderWizard("summary");
+    };
     body.querySelector("#export-img-btn").onclick = () => exportImage(p, body.querySelector("#receipt-capture"));
     body.querySelector("#export-pdf-btn").onclick = () => exportPdf(p, body.querySelector("#receipt-capture"));
 
     renderCharts(s);
     wizardFooter(body, stepIdx, { onSave: () => persistDraftAndMaybeGithub() });
+    subscribeSummaryLiveSync(p.id);
+  }
+
+  // Keep the owner's summary dashboard fresh while guests are actively
+  // filling in their picks, without requiring a manual page reload.
+  async function subscribeSummaryLiveSync(projectId) {
+    if (!isFirebaseConnected() || !projectId) return;
+    try {
+      const rt = await getFirebaseRuntime();
+      stopLiveSync();
+      activeSnapshotUnsub = rt.onSnapshot(firebaseProjectRef(rt, projectId), (snap) => {
+        if (!snap.exists()) return;
+        const updated = normalizeProject(snap.data().project || {});
+        if (!currentProject || currentProject.id !== projectId) return;
+        currentProject = updated;
+        if (parseHash()[0] === "project" && parseHash()[2] === "summary") {
+          renderWizard("summary");
+        }
+      });
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   function personRowHtml(pf, s, p) {
