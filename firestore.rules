@@ -51,6 +51,7 @@ service cloud.firestore {
       function guestOnlyChangedSplitState() {
         return signedIn()
           && resource.data.project.guestAccess == true
+          && resource.data.project.guestLocked != true
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['project', 'entry', 'lastGuestMessage'])
           && request.resource.data.project.diff(resource.data.project).affectedKeys()
