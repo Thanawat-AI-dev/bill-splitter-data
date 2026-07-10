@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>หารบิล — Bill Splitter</title>
+<meta name="description" content="แอปหารบิลแบบโปรเจกต์ บันทึกข้อมูลขึ้น GitHub สร้างแดชบอร์ดสรุป และ Export เป็น PDF">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark">🧾</span>
+        <div>
+          <h1>หารบิล</h1>
+          <p>สร้างโปรเจกต์คิดเงิน แยกข้อมูลตามบัญชีผู้ใช้</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="gh-status" id="gh-status" title="สถานะบัญชีผู้ใช้">
+          <span class="dot"></span><span class="gh-status-text">ยังไม่เข้าสู่ระบบ</span>
+        </span>
+        <button class="btn ghost sm" id="admin-btn" style="display:none;">Admin</button>
+        <button class="btn ghost sm" id="logout-btn" style="display:none;">ออกจากระบบ</button>
+        <button class="icon-btn" id="theme-toggle" title="สลับธีมมืด/สว่าง">🌙</button>
+      </div>
+    </header>
+
+    <main id="view-root" class="view-root">
+      <!-- Rendered dynamically by app.js -->
+    </main>
+
+  </div>
+
+  <!-- Confirm Modal (generic) -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal-card small">
+      <div class="modal-card-head">
+        <h2 id="confirm-title">ยืนยันการทำรายการ</h2>
+      </div>
+      <p id="confirm-body"></p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="confirm-cancel">ยกเลิก</button>
+        <button class="btn danger" id="confirm-ok">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <span id="toast-text"></span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
