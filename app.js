@@ -1255,7 +1255,7 @@ and tell the user directly that it couldn't be read, asking for a clearer photo.
       <div class="row-list" id="menu-rows">${rowsHtml()}</div>
       <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
         <button class="btn ghost sm" id="add-item-btn">+ เพิ่มเมนู</button>
-        <button class="btn ghost sm" id="copy-receipt-prompt-btn">📋 Copy English Receipt Prompt</button>
+        <button class="btn ghost sm" id="copy-receipt-prompt-btn">📋 Copy Prompt foe create json by AI</button>
         <button class="btn ghost sm" id="import-json-btn">📥 นำเข้า JSON จาก AI</button>
         <input type="file" id="import-json-input" accept="application/json,.json" style="display:none;">
       </div>
