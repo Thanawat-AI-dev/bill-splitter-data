@@ -997,10 +997,13 @@ Rules:
   }
 
   async function shareProjectLink(project = currentProject) {
-    // Copy first, then persist: Safari revokes the clipboard-write user
-    // gesture once an awaited network call has run, so copying after the
-    // save silently fails there. The link is deterministic from project.id,
-    // so it doesn't need the save to complete first.
+    // Copy FIRST, before any awaited work. Browsers only honor a clipboard
+    // write during the click's transient user activation; an awaited network/DB
+    // save (or the focus shift it causes) revokes that activation, so a copy
+    // that runs *after* the save is rejected — which is exactly the "เปิดการ
+    // แชร์แล้ว แต่คัดลอกลิงก์ไม่สำเร็จ" case. The link is deterministic from
+    // project.id, so it doesn't need the save to finish first. Callers must
+    // therefore invoke this BEFORE any await, not after persisting.
     let link;
     try {
       link = buildShareLink(project);
@@ -1014,15 +1017,17 @@ Rules:
     } catch (e) {
       copyOk = false;
     }
+    // Now persist the shares/doneBy the user just ticked and turn guest access
+    // on. persistDraftAndMaybeGithub saves the local draft plus Firebase or
+    // GitHub (whichever is connected) and surfaces its own error toast on
+    // failure, so it covers every storage mode.
     try {
-      if (isFirebaseConnected()) {
-        project.guestAccess = true;
-        const summary = computeSummary(project);
-        await saveProjectToFirebase(project, summary);
-      }
+      project.guestAccess = true;
+      const ok = await persistDraftAndMaybeGithub();
+      if (!ok) return;
       toast(copyOk
         ? "คัดลอกลิงก์แชร์แล้ว — ทุกคนที่มีลิงก์นี้จะเห็นชื่อและยอดของทุกคนในบิล"
-        : "เปิดการแชร์แล้ว แต่คัดลอกลิงก์ไม่สำเร็จ ลองกดแชร์อีกครั้ง", !copyOk);
+        : "เปิดการแชร์แล้ว แต่คัดลอกลิงก์ไม่สำเร็จ — แตะลิงก์นี้ค้างเพื่อคัดลอกเอง: " + link, !copyOk);
     } catch (e) {
       toast("บันทึกการแชร์ไม่สำเร็จ: " + (e.message || ""), true);
     }
@@ -2356,10 +2361,7 @@ Rules:
       </div>
       ${(!items.length || !people.length) ? `<div class="empty-state"><p>กรุณาเพิ่มเมนูและรายชื่อคนให้ครบก่อน</p></div>` : tableHtml()}
     `;
-    body.querySelector("#share-link-btn").onclick = (e) => withButtonPending(e.currentTarget, "📤 กำลังเตรียมลิงก์...", async () => {
-      const ok = await persistDraftAndMaybeGithub();
-      if (ok) await shareProjectLink(p);
-    });
+    body.querySelector("#share-link-btn").onclick = (e) => withButtonPending(e.currentTarget, "📤 กำลังเตรียมลิงก์...", () => shareProjectLink(p));
     function wire() {
       wireCellClickToggle(body);
       body.querySelectorAll('input[type=checkbox][data-item][data-person]').forEach((cb) => {
@@ -2404,10 +2406,7 @@ Rules:
             <button class="btn ghost" id="share-link-btn">📤 แชร์ลิงก์</button>
           </div>
           ${tableHtml()}`;
-        body.querySelector("#share-link-btn").onclick = async () => {
-          const ok = await persistDraftAndMaybeGithub();
-          if (ok) shareProjectLink(p);
-        };
+        body.querySelector("#share-link-btn").onclick = () => shareProjectLink(p);
         wire();
         wizardFooter(body, stepIdx, footerOpts);
       };
@@ -2514,10 +2513,7 @@ Rules:
       const ok = await persistDraftAndMaybeGithub();
       toast(ok ? "บันทึกแล้ว" : "บันทึกไม่สำเร็จ", !ok);
     });
-    body.querySelector("#share-summary-btn").onclick = (e) => withButtonPending(e.currentTarget, "📤 กำลังเตรียมลิงก์...", async () => {
-      const ok = await persistDraftAndMaybeGithub();
-      if (ok) await shareProjectLink(p);
-    });
+    body.querySelector("#share-summary-btn").onclick = (e) => withButtonPending(e.currentTarget, "📤 กำลังเตรียมลิงก์...", () => shareProjectLink(p));
     const lockBtn = body.querySelector("#guest-lock-btn");
     if (lockBtn) lockBtn.onclick = async () => {
       p.guestLocked = !p.guestLocked;
