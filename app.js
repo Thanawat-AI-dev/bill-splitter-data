@@ -1022,7 +1022,15 @@ Rules:
     // GitHub (whichever is connected) and surfaces its own error toast on
     // failure, so it covers every storage mode.
     try {
-      project.guestAccess = true;
+      // persistDraftAndMaybeGithub() saves currentProject, so the guestAccess
+      // flag must be set on that same object. Sharing only ever targets the
+      // open project; bail if a caller passes anything else rather than
+      // silently flipping the flag on an object that never gets saved.
+      if (project !== currentProject) {
+        toast("แชร์ได้เฉพาะโปรเจกต์ที่เปิดอยู่", true);
+        return;
+      }
+      currentProject.guestAccess = true;
       const ok = await persistDraftAndMaybeGithub();
       if (!ok) return;
       toast(copyOk
@@ -2033,23 +2041,51 @@ Rules:
     if (!geminiSettings || !geminiSettings.apiKey) {
       throw new Error("กรุณาใส่ Gemini API Key ก่อน (ดูหัวข้อ “ตั้งค่า AI อ่านบิลอัตโนมัติ” ด้านล่าง)");
     }
+    // Guard oversized uploads before we spend time encoding + sending: base64
+    // inflates ~33% and Gemini's inline-request cap is ~20MB, so reject well
+    // below that with a clear message instead of an opaque HTTP 400.
+    const MAX_BYTES = 12 * 1024 * 1024; // ~12MB source ≈ ~16MB base64
+    if (file.size > MAX_BYTES) {
+      throw new Error(`รูปใหญ่เกินไป (${(file.size / 1048576).toFixed(1)}MB) — กรุณาย่อรูปหรือถ่ายใหม่ให้เล็กกว่า ${Math.floor(MAX_BYTES / 1048576)}MB`);
+    }
     const base64Data = await readFileAsBase64(file);
     const mimeType = file.type || "image/jpeg";
     const model = geminiSettings.model || "gemini-2.5-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(geminiSettings.apiKey)}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: mimeType, data: base64Data } },
-            { text: RECEIPT_VISION_PROMPT },
-          ],
-        }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
-    });
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    // fetch has no default timeout — on a stalled mobile connection the request
+    // would hang forever, leaving the scan button disabled with no way to
+    // cancel. Abort after 60s and surface a retryable error instead. The API
+    // key goes in the x-goog-api-key header, not the URL, to keep it out of
+    // proxy/CDN access logs.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": geminiSettings.apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mimeType, data: base64Data } },
+              { text: RECEIPT_VISION_PROMPT },
+            ],
+          }],
+          generationConfig: { responseMimeType: "application/json" },
+        }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      if (e && e.name === "AbortError") {
+        throw new Error("หมดเวลาเชื่อมต่อ AI — เครือข่ายอาจช้า ลองใหม่อีกครั้ง");
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       throw new Error((data && data.error && data.error.message) || `เรียก AI ไม่สำเร็จ (HTTP ${res.status})`);
@@ -2177,7 +2213,12 @@ Rules:
       let added = 0, skipped = 0;
       list.forEach((it) => {
         const name = String(it.name || it.ชื่อเมนู || "").trim();
-        const price = Number(it.price || it.ราคา || 0);
+        // Prices may arrive as strings with separators/currency signs (e.g.
+        // "1,200" or "฿1200") from an external AI import — strip those before
+        // Number() so they don't silently become NaN → 0 and understate the bill.
+        let rawPrice = it.price || it.ราคา || 0;
+        if (typeof rawPrice === "string") rawPrice = rawPrice.replace(/[,\s฿$]/g, "");
+        const price = Number(rawPrice);
         if (!name) return;
         const cleanPrice = isFinite(price) ? price : 0;
         const sig = `${name.toLowerCase()}|${cleanPrice}`;
@@ -2227,6 +2268,14 @@ Rules:
       try {
         await withButtonPending(btn, "กำลังให้ AI อ่านรูป...", async () => {
           const parsed = await callGeminiReceiptVision(file);
+          // The AI call can take many seconds; if the user switched step or
+          // project meanwhile, `p`/`body` are stale (the step pills aren't
+          // disabled during the request) — don't write into a detached view or
+          // the wrong project.
+          if (currentProject !== p || !body.querySelector("#menu-rows")) {
+            toast("ยกเลิกการเติมเมนู เพราะออกจากหน้านี้ไปแล้ว ลองสแกนใหม่อีกครั้ง", true);
+            return;
+          }
           const { added, skipped } = mergeParsedMenu(parsed);
           toast(`AI อ่านบิลสำเร็จ ${added} รายการ${skipped ? ` (ข้ามรายการซ้ำ ${skipped} รายการ)` : ""} — ตรวจสอบราคาอีกครั้งก่อนไปขั้นต่อไป`);
         });
