@@ -2553,8 +2553,23 @@
   }
 
   // ---------------------------------------------------------------
-  // PDF export
+  // PDF / image export
   // ---------------------------------------------------------------
+  // In the Capacitor Android shell, MainActivity injects window.AndroidDownload
+  // because the WebView silently drops anchor/blob/data downloads (the export
+  // button would do nothing). Hand the file — with its real filename — to
+  // native code to write into Downloads. In a normal browser AndroidDownload
+  // is undefined and callers do the standard anchor download instead.
+  function nativeSave(dataUrl, filename, mime) {
+    try {
+      if (window.AndroidDownload && typeof window.AndroidDownload.saveBase64 === "function") {
+        window.AndroidDownload.saveBase64(dataUrl, filename, mime);
+        return true;
+      }
+    } catch (e) { /* fall through to the browser download path */ }
+    return false;
+  }
+
   async function exportPdf(project, captureEl) {
     toast("กำลังสร้าง PDF...");
     try {
@@ -2578,7 +2593,9 @@
       pdf.addImage(imgData, "PNG", marginPt, marginPt, contentWidthPt, imgHeightPt);
 
       const filename = `bill_${(project.name || "project").replace(/[^a-zA-Z0-9ก-๙_-]+/g, "_")}.pdf`;
-      pdf.save(filename);
+      if (!nativeSave(pdf.output("datauristring"), filename, "application/pdf")) {
+        pdf.save(filename);
+      }
       toast("ดาวน์โหลด PDF เรียบร้อย (ขนาดใบเสร็จ 80mm หน้าเดียว)");
     } catch (e) {
       console.error(e);
@@ -2591,10 +2608,14 @@
     try {
       await ensureHtml2canvas(); // loaded on demand — see loadScriptOnce
       const canvas = await html2canvas(captureEl, { scale: 2, backgroundColor: "#fdfaf2" });
-      const link = document.createElement("a");
-      link.download = `bill_${(project.name || "project").replace(/[^a-zA-Z0-9ก-๙_-]+/g, "_")}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
+      const filename = `bill_${(project.name || "project").replace(/[^a-zA-Z0-9ก-๙_-]+/g, "_")}.png`;
+      const dataUrl = canvas.toDataURL("image/png");
+      if (!nativeSave(dataUrl, filename, "image/png")) {
+        const link = document.createElement("a");
+        link.download = filename;
+        link.href = dataUrl;
+        link.click();
+      }
       toast("ดาวน์โหลดรูปภาพเรียบร้อย");
     } catch (e) {
       console.error(e);
