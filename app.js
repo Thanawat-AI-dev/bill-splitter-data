@@ -237,18 +237,37 @@
     return p;
   }
   async function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return;
+    // Legacy execCommand path — still the reliable one inside the Android
+    // WebView the mobile app runs in, where navigator.clipboard exists on the
+    // secure origin but writeText() rejects. Runs during the click's transient
+    // user activation, so it must be reachable even when the async Clipboard
+    // API is present but fails.
+    function legacyCopy() {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.top = "0";
+      ta.style.left = "0";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { ta.setSelectionRange(0, text.length); } catch (e) { /* older webviews */ }
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove();
+      return ok;
     }
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    ta.remove();
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (e) {
+        if (legacyCopy()) return;
+        throw e;
+      }
+    }
+    if (!legacyCopy()) throw new Error("คัดลอกลิงก์ไม่สำเร็จ");
   }
 
   // Lazy-load an external <script> once, resolving when it's ready. Lets us
