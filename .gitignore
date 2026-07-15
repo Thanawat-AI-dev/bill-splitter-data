@@ -2,3 +2,15 @@ firebase-debug.log
 ui-debug.log
 *-debug.log
 .firebase/
+
+# Capacitor Android wrapper (mobile/)
+mobile/node_modules/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/capacitor-cordova-android-plugins/
+mobile/android/local.properties
+mobile/android/.idea/
+mobile/android/*.iml
+mobile/android/app/*.iml
+mobile/dist/

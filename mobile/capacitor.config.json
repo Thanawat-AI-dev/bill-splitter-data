@@ -1,0 +1,9 @@
+{
+  "appId": "com.thanawat.billsplitter",
+  "appName": "หารบิล",
+  "webDir": "www",
+  "server": {
+    "url": "https://thanawat-ai-dev.github.io/bill-splitter-data/",
+    "cleartext": false
+  }
+}
