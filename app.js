@@ -1531,10 +1531,25 @@
     let currentView = savedPerson ? { type: "split", personId: savedPerson.id } : { type: "picker" };
     let guestSyncError = null;
 
+    // Shown only to the project owner previewing their own project's guest
+    // view (a real anonymous guest has no owner summary to return to). Lets
+    // them jump back out instead of relying on the browser/system back button.
+    function ownerBannerHtml() {
+      const isOwner = currentUser && currentProject && currentProject.ownerUid
+        && currentProject.ownerUid === currentUser.uid;
+      if (!isOwner) return "";
+      return `<div class="card" style="border-color:var(--accent); margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <span class="section-sub" style="margin:0;">👁️ กำลังดูมุมมองเกส (ในฐานะเจ้าของบิล)</span>
+        <button class="btn ghost sm" id="owner-exit-guest-btn">← ออกจากโหมดเกส</button>
+      </div>`;
+    }
+
     function shell(inner) {
-      root.innerHTML = `<div class="guest-shell">${guestSyncError ? syncErrorBannerHtml() : ""}${inner}</div>`;
+      root.innerHTML = `<div class="guest-shell">${ownerBannerHtml()}${guestSyncError ? syncErrorBannerHtml() : ""}${inner}</div>`;
       const retryBtn = root.querySelector("#guest-sync-retry");
       if (retryBtn) retryBtn.onclick = () => { guestSyncError = null; renderCurrentView(); };
+      const exitBtn = root.querySelector("#owner-exit-guest-btn");
+      if (exitBtn) exitBtn.onclick = () => navigate("/project/" + projectId + "/summary");
     }
 
     function syncErrorBannerHtml() {
