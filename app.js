@@ -2349,7 +2349,7 @@
       </div>
 
       ${s.unassignedItems.length ? `<div class="badge warn" style="display:inline-block;margin-bottom:14px;">⚠️ มี ${s.unassignedItems.length} เมนูที่ยังไม่ระบุคนหาร — ยอดรวมอาจไม่ครบ</div>` : ""}
-      ${p.guestAccess ? `<div class="badge ${doneCount >= totalPeople && totalPeople > 0 ? "ok" : "warn"}" style="display:inline-block;margin-bottom:14px;margin-left:8px;" id="guest-progress-badge">👥 เกสยืนยันแล้ว ${doneCount}/${totalPeople} คน${p.guestLocked ? " · ปิดรับการแก้ไขแล้ว" : " · อัปเดตสด"}</div>` : ""}
+      ${p.guestAccess ? `<div class="badge ${doneCount >= totalPeople && totalPeople > 0 ? "ok" : "warn"}" style="display:inline-block;margin-bottom:14px;margin-left:8px;" id="guest-progress-badge">👥 เกสยืนยันแล้ว ${doneCount}/${totalPeople} คน${p.guestLocked ? " · ปิดรับการแก้ไขแล้ว" : " · อัปเดตสด"}</div><button class="btn ghost sm" id="owner-guest-view-btn" style="margin-left:8px;margin-bottom:14px;vertical-align:middle;" title="เปิดดูมุมมองที่เกสเห็น — ติ๊กเมนูแทนเพื่อนได้ด้วย">👁️ เข้าโหมดเกส</button>` : ""}
 
       ${pendingPeople.length ? `
       <div class="card pending-card" style="margin-bottom:20px;">
@@ -2419,6 +2419,16 @@
       toast(ok ? (p.guestLocked ? "ปิดรับการแก้ไขจากเกสแล้ว" : "เปิดให้เกสแก้ไขได้อีกครั้ง") : "บันทึกไม่สำเร็จ", !ok);
       renderWizard("summary");
     };
+    // Owner-only: open this project's guest view (same as a share link would).
+    // Persist first so the guest side loads the latest shares/doneBy from
+    // Firebase. The owner stays logged in — ensureGuestSession keeps the
+    // existing session rather than swapping in an anonymous one — so backing
+    // out returns to this owner summary.
+    const guestViewBtn = body.querySelector("#owner-guest-view-btn");
+    if (guestViewBtn) guestViewBtn.onclick = (e) => withButtonPending(e.currentTarget, "กำลังเปิดโหมดเกส...", async () => {
+      await persistDraftAndMaybeGithub();
+      navigate("/guest/" + p.id);
+    });
     body.querySelector("#export-img-btn").onclick = () => exportImage(p, body.querySelector("#receipt-capture"));
     body.querySelector("#export-pdf-btn").onclick = () => exportPdf(p, body.querySelector("#receipt-capture"));
 
