@@ -2351,20 +2351,26 @@
       : [];
 
     body.innerHTML = `
-      <div class="toolbar-row">
-        <div><div class="section-title">สรุปผล — ${escapeHtml(p.name)}</div>
-        <div class="section-sub">${escapeHtml(p.place || "")} · ${escapeHtml(p.date || "")}</div></div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn ghost" id="share-summary-btn">📤 แชร์ลิงก์</button>
-          ${p.guestAccess ? `<button class="btn ghost" id="guest-lock-btn">${p.guestLocked ? "🔓 เปิดรับการแก้ไขอีกครั้ง" : "🔒 ปิดรับการแก้ไขจากเกส"}</button>` : ""}
-          <button class="btn ghost" id="save-now-btn">💾 บันทึก</button>
-          <button class="btn ghost" id="export-img-btn">🖼️ Export รูปภาพ</button>
-          <button class="btn primary" id="export-pdf-btn">⬇️ Export PDF</button>
+      <div class="section-title">สรุปผล — ${escapeHtml(p.name)}</div>
+      <div class="section-sub">${escapeHtml(p.place || "")} · ${escapeHtml(p.date || "")}</div>
+
+      <div class="summary-actions">
+        ${p.guestAccess ? `<button class="btn primary" id="owner-guest-view-btn" title="เปิดดูมุมมองที่เกสเห็น — ติ๊กเมนูแทนเพื่อนได้ด้วย">👁️ เข้าโหมดเกส</button>` : ""}
+        <button class="btn ${p.guestAccess ? "ghost" : "primary"}" id="share-summary-btn">📤 แชร์ลิงก์</button>
+        <button class="btn ghost" id="save-now-btn">💾 บันทึก</button>
+        <div class="export-wrap">
+          <button class="btn ghost" id="export-btn" aria-haspopup="true" aria-expanded="false">⬇️ Export ▾</button>
+          <div class="export-menu" id="export-menu" hidden>
+            <button class="btn ghost sm" id="export-pdf-opt">⬇️ PDF (ใบเสร็จ 80mm)</button>
+            <button class="btn ghost sm" id="export-img-opt">🖼️ รูปภาพ (PNG)</button>
+          </div>
         </div>
+        ${p.guestAccess ? `<button class="btn ghost" id="guest-lock-btn">${p.guestLocked ? "🔓 เปิดรับการแก้ไขอีกครั้ง" : "🔒 ปิดรับการแก้ไขจากเกส"}</button>` : ""}
       </div>
+      <div class="section-sub summary-share-hint">📤 <strong>แชร์ลิงก์</strong> = ส่งให้เพื่อนแต่ละคนกดเลือกเมนูที่ตัวเองกิน ระบบสรุปยอดให้อัตโนมัติ (เพื่อนไม่ต้องสมัคร/เข้าสู่ระบบ)</div>
 
       ${s.unassignedItems.length ? `<div class="badge warn" style="display:inline-block;margin-bottom:14px;">⚠️ มี ${s.unassignedItems.length} เมนูที่ยังไม่ระบุคนหาร — ยอดรวมอาจไม่ครบ</div>` : ""}
-      ${p.guestAccess ? `<div class="badge ${doneCount >= totalPeople && totalPeople > 0 ? "ok" : "warn"}" style="display:inline-block;margin-bottom:14px;margin-left:8px;" id="guest-progress-badge">👥 เกสยืนยันแล้ว ${doneCount}/${totalPeople} คน${p.guestLocked ? " · ปิดรับการแก้ไขแล้ว" : " · อัปเดตสด"}</div><button class="btn ghost sm" id="owner-guest-view-btn" style="margin-left:8px;margin-bottom:14px;vertical-align:middle;" title="เปิดดูมุมมองที่เกสเห็น — ติ๊กเมนูแทนเพื่อนได้ด้วย">👁️ เข้าโหมดเกส</button>` : ""}
+      ${p.guestAccess ? `<div class="badge ${doneCount >= totalPeople && totalPeople > 0 ? "ok" : "warn"}" style="display:inline-block;margin-bottom:14px;margin-left:8px;" id="guest-progress-badge">👥 เกสยืนยันแล้ว ${doneCount}/${totalPeople} คน${p.guestLocked ? " · ปิดรับการแก้ไขแล้ว" : " · อัปเดตสด"}</div>` : ""}
 
       ${pendingPeople.length ? `
       <div class="card pending-card" style="margin-bottom:20px;">
@@ -2444,8 +2450,32 @@
       await persistDraftAndMaybeGithub();
       navigate("/guest/" + p.id);
     });
-    body.querySelector("#export-img-btn").onclick = () => exportImage(p, body.querySelector("#receipt-capture"));
-    body.querySelector("#export-pdf-btn").onclick = () => exportPdf(p, body.querySelector("#receipt-capture"));
+    // Combined Export button: click opens a small menu to pick the format.
+    // The outside-click closer is attached only while the menu is open and
+    // removed when it closes, so re-rendering the summary can't pile up stale
+    // document listeners.
+    const exportBtn = body.querySelector("#export-btn");
+    const exportMenu = body.querySelector("#export-menu");
+    function closeExportMenu() {
+      exportMenu.hidden = true;
+      exportBtn.setAttribute("aria-expanded", "false");
+      document.removeEventListener("click", onExportOutside);
+    }
+    function onExportOutside(ev) {
+      if (!exportMenu.contains(ev.target) && ev.target !== exportBtn) closeExportMenu();
+    }
+    exportBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (exportMenu.hidden) {
+        exportMenu.hidden = false;
+        exportBtn.setAttribute("aria-expanded", "true");
+        setTimeout(() => document.addEventListener("click", onExportOutside), 0);
+      } else {
+        closeExportMenu();
+      }
+    };
+    body.querySelector("#export-pdf-opt").onclick = () => { closeExportMenu(); exportPdf(p, body.querySelector("#receipt-capture")); };
+    body.querySelector("#export-img-opt").onclick = () => { closeExportMenu(); exportImage(p, body.querySelector("#receipt-capture")); };
 
     const nudgeBtn = body.querySelector("#copy-nudge-btn");
     if (nudgeBtn) nudgeBtn.onclick = async () => {

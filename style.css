@@ -187,6 +187,20 @@ body::before {
 
 .toolbar-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
 
+/* Summary page action bar: one clean wrapping row of buttons under the title,
+   with a minimal one-line hint for the share button below it. */
+.summary-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 14px 0 8px; }
+.summary-share-hint { margin-bottom: 16px; font-size: 0.82rem; line-height: 1.5; }
+.export-wrap { position: relative; display: inline-block; }
+.export-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  display: flex; flex-direction: column; gap: 6px; min-width: 210px;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm); padding: 8px; box-shadow: var(--shadow-lg), var(--hairline);
+}
+.export-menu[hidden] { display: none; }
+.export-menu .btn { justify-content: flex-start; width: 100%; }
+
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; }
 .project-card {
   cursor: pointer; position: relative; padding: 22px;
