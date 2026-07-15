@@ -967,9 +967,12 @@
     try {
       // persistDraftAndMaybeGithub() saves currentProject, so the guestAccess
       // flag must be set on that same object. Sharing only ever targets the
-      // open project; bail if a caller passes anything else rather than
-      // silently flipping the flag on an object that never gets saved.
-      if (project !== currentProject) {
+      // open project; bail if a caller passes anything else. Compare by id,
+      // not object identity: the summary's live-sync replaces currentProject
+      // with a fresh normalized object on every snapshot, so a handler that
+      // captured the project at render time would otherwise fail this check
+      // even though it IS the open project.
+      if (!currentProject || project.id !== currentProject.id) {
         toast("แชร์ได้เฉพาะโปรเจกต์ที่เปิดอยู่", true);
         return;
       }
@@ -2367,7 +2370,7 @@
         </div>
         ${p.guestAccess ? `<button class="btn ghost" id="guest-lock-btn">${p.guestLocked ? "🔓 เปิดรับการแก้ไขอีกครั้ง" : "🔒 ปิดรับการแก้ไขจากเกส"}</button>` : ""}
       </div>
-      <div class="section-sub summary-share-hint">📤 <strong>แชร์ลิงก์</strong> = ส่งให้เพื่อนแต่ละคนกดเลือกเมนูที่ตัวเองกิน ระบบสรุปยอดให้อัตโนมัติ (เพื่อนไม่ต้องสมัคร/เข้าสู่ระบบ)</div>
+      <div class="section-sub summary-share-hint">📤 <strong>แชร์ลิงก์</strong> = ส่งให้เพื่อนแต่ละคนกดเลือกเมนูที่ตัวเองกิน ระบบสรุปยอดให้อัตโนมัติ (เพื่อนไม่ต้องสมัคร/เข้าสู่ระบบ)${p.guestAccess ? `<br>👁️ <strong>เข้าโหมดเกส</strong> = เข้าไปติ๊กยืนยันเมนูที่ตัวคุณเองกิน (หรือติ๊กแทนเพื่อนก็ได้)` : ""}</div>
 
       ${s.unassignedItems.length ? `<div class="badge warn" style="display:inline-block;margin-bottom:14px;">⚠️ มี ${s.unassignedItems.length} เมนูที่ยังไม่ระบุคนหาร — ยอดรวมอาจไม่ครบ</div>` : ""}
       ${p.guestAccess ? `<div class="badge ${doneCount >= totalPeople && totalPeople > 0 ? "ok" : "warn"}" style="display:inline-block;margin-bottom:14px;margin-left:8px;" id="guest-progress-badge">👥 เกสยืนยันแล้ว ${doneCount}/${totalPeople} คน${p.guestLocked ? " · ปิดรับการแก้ไขแล้ว" : " · อัปเดตสด"}</div>` : ""}
@@ -2432,12 +2435,19 @@
       const ok = await persistDraftAndMaybeGithub();
       toast(ok ? "บันทึกแล้ว" : "บันทึกไม่สำเร็จ", !ok);
     });
-    body.querySelector("#share-summary-btn").onclick = (e) => withButtonPending(e.currentTarget, "📤 กำลังเตรียมลิงก์...", () => shareProjectLink(p));
+    // Use currentProject (not the captured p) — live-sync may have swapped it
+    // for a fresh object since render. Re-render after the first share so the
+    // action bar updates (share drops to secondary, 👁️ เข้าโหมดเกส appears).
+    body.querySelector("#share-summary-btn").onclick = (e) => withButtonPending(e.currentTarget, "📤 กำลังเตรียมลิงก์...", async () => {
+      const wasShared = !!(currentProject && currentProject.guestAccess);
+      await shareProjectLink(currentProject);
+      if (!wasShared && currentProject && currentProject.guestAccess) renderWizard("summary");
+    });
     const lockBtn = body.querySelector("#guest-lock-btn");
     if (lockBtn) lockBtn.onclick = async () => {
-      p.guestLocked = !p.guestLocked;
+      currentProject.guestLocked = !currentProject.guestLocked;
       const ok = await persistDraftAndMaybeGithub();
-      toast(ok ? (p.guestLocked ? "ปิดรับการแก้ไขจากเกสแล้ว" : "เปิดให้เกสแก้ไขได้อีกครั้ง") : "บันทึกไม่สำเร็จ", !ok);
+      toast(ok ? (currentProject.guestLocked ? "ปิดรับการแก้ไขจากเกสแล้ว" : "เปิดให้เกสแก้ไขได้อีกครั้ง") : "บันทึกไม่สำเร็จ", !ok);
       renderWizard("summary");
     };
     // Owner-only: open this project's guest view (same as a share link would).
