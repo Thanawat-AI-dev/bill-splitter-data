@@ -249,7 +249,7 @@ body::before {
 .field label, label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; display: flex; flex-direction: column; gap: 7px; }
 .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; }
 input[type=text], input[type=number], input[type=password], input[type=date],
-input[type=email], textarea {
+input[type=email], textarea, select {
   background: var(--bg-surface-2); border: 1px solid var(--border-color); color: var(--text-primary);
   padding: 12px 14px; border-radius: var(--radius-sm); font-size: 1rem; font-family: var(--font-body);
   transition: border-color .15s ease, box-shadow .15s ease;
@@ -257,10 +257,14 @@ input[type=email], textarea {
 input::placeholder, textarea::placeholder { color: var(--text-muted); }
 /* 16px (1rem) is the iOS Safari auto-zoom threshold — anything smaller zooms in on focus. */
 textarea { min-height: 140px; resize: vertical; font-family: var(--font-mono); line-height: 1.5; }
-input:focus, textarea:focus {
+input:focus, textarea:focus, select:focus {
   outline: none; border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+.model-select-field {
+  flex-direction: row; align-items: center; gap: 8px; font-size: .85rem;
+}
+.model-select-field select { padding: 8px 10px; font-size: .9rem; }
 
 .btn:focus-visible, .icon-btn:focus-visible, .chip:focus-visible,
 .wizard-step-pill:focus-visible, .person-row:focus-visible, .open-area:focus-visible,

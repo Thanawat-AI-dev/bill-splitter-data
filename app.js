@@ -16,7 +16,7 @@
   const PEOPLE_POOL_PATH = "people/_saved.json";
   const SETTINGS_KEY = "billsplit_gh_settings";
   const FIREBASE_SETTINGS_KEY = "billsplit_firebase_settings";
-  const GEMINI_SETTINGS_KEY = "billsplit_gemini_settings";
+  const GEMINI_MODEL_KEY = "billsplit_gemini_model";
   const THEME_KEY = "billsplit_theme";
   const DRAFT_KEY_PREFIX = "billsplit_draft_";
   const STEPS = [
@@ -26,54 +26,30 @@
     { key: "split", label: "4. หารบิล" },
     { key: "summary", label: "5. สรุปผล" },
   ];
-  const RECEIPT_READER_PROMPT = `You are bill-receipt-reader, a receipt OCR and cleanup assistant for a bill-splitting web app.
+  // Shared Gemini API key baked into this build so every user of this
+  // deployment can use AI receipt scanning without supplying their own key.
+  // This is a static site (GitHub Pages) — the key is visible to anyone who
+  // views the page source. Restrict it by HTTP referrer in Google AI
+  // Studio/Cloud Console to limit abuse.
+  const GEMINI_API_KEY = "AQ.Ab8RN6IPAEP76vius1zIV-FgKcTuaqj7JwjFoNzPAyGKLJbw_Q";
+  // Selectable models — offered as a dropdown so a user can switch away from
+  // one that's hit its free-tier rate limit instead of being stuck. Each
+  // option here is a genuinely distinct model (not just aliases of the same
+  // underlying model) so they draw from separate quota buckets.
+  // Verified against the baked-in key above via models.generateContent:
+  // older/pro-tier IDs (gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash,
+  // gemini-pro-latest, gemini-3*-pro-preview) all fail on this key's free
+  // tier — either 404 "no longer available to new users" or 429 with a hard
+  // 0-quota limit. Re-verify with models.generateContent before adding any
+  // model back.
+  const GEMINI_MODELS = [
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash (แนะนำ)" },
+    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite (ลิมิตสูงกว่า)" },
+    { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview (สำรอง)" },
+  ];
 
-Task:
-1. Carefully read the attached receipt/bill image.
-2. Extract food/drink/product line items and prices according to the rules below.
-3. Build a JSON object following the schema below, then save it as an actual file.
-4. Deliver that file to the user as a downloadable attachment (use file-creation + file-sharing tools — do NOT print the JSON content in the chat reply).
-5. Reply with a short 1-2 line message only, summarizing how many items were found, the approximate total, and whether anything needs double-checking. Do NOT paste the JSON or any code block in the chat reply.
-
-Filename: bill_import_<shop name or date if readable, otherwise "receipt">.json
-File delivery: save the file and present it to the user for download immediately.
-
-Required JSON schema (do not add or remove keys):
-{
-  "billName": "",
-  "place": "",
-  "date": "",
-  "totalDiscount": 0,
-  "serviceChargePercent": 0,
-  "vatPercent": 0,
-  "items": [
-    { "name": "", "price": 0 }
-  ],
-  "notes": []
-}
-
-Extraction rules:
-- billName / place: shop name if readable; leave empty if unclear.
-- date: format YYYY-MM-DD only. Use "" if unreadable.
-- totalDiscount / serviceChargePercent / vatPercent: plain numbers, no % or currency symbols. Use 0 if none.
-- items: include only food/drink/product line items. Exclude subtotal, total, grand total, discount, service charge, VAT, table number, order number, receipt number, and payment method lines.
-- If a line has a quantity (e.g. 2 x 50), use the total line amount (100), not the unit price — do not divide it yourself.
-- price must be a plain number — no commas, no currency symbols.
-- Never invent items or prices that aren't in the image.
-- If part of a number or word is unclear, use your best reading and add a note in "notes" flagging which item should be double-checked.
-
-Validation before saving the file:
-- The JSON must be valid and parseable.
-- items must always be an array; each item must have exactly "name" and "price".
-- All numeric fields must be actual numbers, not strings.
-
-If the image is not a receipt, or cannot be read at all, generate the file with:
-{"billName":"","place":"","date":"","totalDiscount":0,"serviceChargePercent":0,"vatPercent":0,"items":[],"notes":["Receipt could not be read clearly."]}
-and tell the user directly that it couldn't be read, asking for a clearer photo.`;
-
-  // Same extraction rules as RECEIPT_READER_PROMPT above, but for a direct
-  // Gemini API vision call — the model replies with the JSON object
-  // itself in its text response instead of producing a downloadable file.
+  // Prompt for the direct Gemini API vision call — the model replies with
+  // the JSON object itself in its text response.
   const RECEIPT_VISION_PROMPT = `You are bill-receipt-reader, a receipt OCR assistant for a bill-splitting web app.
 
 Read the attached receipt/bill image and respond with ONLY a single valid JSON object — no markdown code fences, no explanation, no text before or after — matching exactly this schema:
@@ -104,7 +80,7 @@ Rules:
   // ---------------------------------------------------------------
   let settings = loadSettings();          // {token, owner, repo, branch}
   let firebaseSettings = loadFirebaseSettings(); // public Firebase web config
-  let geminiSettings = loadGeminiSettings(); // {apiKey, model} — for in-app AI receipt reading
+  let geminiModel = loadGeminiModel();    // selected model id — for in-app AI receipt reading
   let firebaseRuntime = null;             // lazy-loaded Firebase modules/app
   let currentUser = null;                 // Firebase Auth user
   let currentUserProfile = null;          // {email, role, createdAt}
@@ -452,15 +428,14 @@ Rules:
     localStorage.removeItem(FIREBASE_SETTINGS_KEY);
     updateGhStatus();
   }
-  function loadGeminiSettings() {
+  function loadGeminiModel() {
     try {
-      const raw = localStorage.getItem(GEMINI_SETTINGS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
+      return localStorage.getItem(GEMINI_MODEL_KEY) || GEMINI_MODELS[0].id;
+    } catch { return GEMINI_MODELS[0].id; }
   }
-  function saveGeminiSettingsToStorage(s) {
-    geminiSettings = s;
-    localStorage.setItem(GEMINI_SETTINGS_KEY, JSON.stringify(s));
+  function saveGeminiModel(modelId) {
+    geminiModel = modelId;
+    localStorage.setItem(GEMINI_MODEL_KEY, modelId);
   }
   function isConnected() {
     return !!(settings && settings.token && settings.owner && settings.repo);
@@ -2026,9 +2001,9 @@ Rules:
   }
 
   // --- AI receipt photo reading (calls the Google Gemini API directly from
-  // the browser using a user-supplied key — see stepMenu's settings panel.
-  // Gemini's generativelanguage endpoint allows browser (CORS) calls with the
-  // key passed as a ?key= query param) ---
+  // the browser using the shared key baked into this build — see
+  // GEMINI_API_KEY above. Gemini's generativelanguage endpoint allows
+  // browser (CORS) calls with the key passed as a header) ---
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -2038,9 +2013,6 @@ Rules:
     });
   }
   async function callGeminiReceiptVision(file) {
-    if (!geminiSettings || !geminiSettings.apiKey) {
-      throw new Error("กรุณาใส่ Gemini API Key ก่อน (ดูหัวข้อ “ตั้งค่า AI อ่านบิลอัตโนมัติ” ด้านล่าง)");
-    }
     // Guard oversized uploads before we spend time encoding + sending: base64
     // inflates ~33% and Gemini's inline-request cap is ~20MB, so reject well
     // below that with a clear message instead of an opaque HTTP 400.
@@ -2050,7 +2022,7 @@ Rules:
     }
     const base64Data = await readFileAsBase64(file);
     const mimeType = file.type || "image/jpeg";
-    const model = geminiSettings.model || "gemini-2.5-flash";
+    const model = geminiModel || GEMINI_MODELS[0].id;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
     // fetch has no default timeout — on a stalled mobile connection the request
     // would hang forever, leaving the scan button disabled with no way to
@@ -2065,7 +2037,7 @@ Rules:
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-goog-api-key": geminiSettings.apiKey,
+          "x-goog-api-key": GEMINI_API_KEY,
         },
         body: JSON.stringify({
           contents: [{
@@ -2088,6 +2060,12 @@ Rules:
     }
     const data = await res.json().catch(() => null);
     if (!res.ok) {
+      // 429 = rate limit / quota exceeded on the selected model — the most
+      // actionable fix is switching to a different model in the dropdown,
+      // so say that explicitly instead of surfacing the raw API error.
+      if (res.status === 429) {
+        throw new Error(`โมเดล "${model}" ติดลิมิตการใช้งานชั่วคราว — กรุณาเปลี่ยนโมเดลในเมนู "โมเดล AI" ด้านล่างแล้วลองใหม่`);
+      }
       throw new Error((data && data.error && data.error.message) || `เรียก AI ไม่สำเร็จ (HTTP ${res.status})`);
     }
     const parts = (((data && data.candidates) || [])[0]?.content?.parts) || [];
@@ -2121,41 +2099,20 @@ Rules:
       <div class="section-title">รายการเมนู</div>
       <div class="section-sub">กรอกชื่อเมนูและราคาตามใบเสร็จ หรืออัปโหลดรูปบิลให้ AI อ่านและสร้างรายการให้อัตโนมัติ</div>
       <div class="row-list" id="menu-rows">${rowsHtml()}</div>
-      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
         <button class="btn ghost sm" id="add-item-btn">+ เพิ่มเมนู</button>
         <button class="btn primary sm" id="scan-photo-btn">📷 อัปโหลดรูปบิล (AI อ่านให้อัตโนมัติ)</button>
         <input type="file" id="scan-photo-input" accept="image/*" style="display:none;">
-        <button class="btn ghost sm" id="copy-receipt-prompt-btn">📋 Copy Prompt</button>
-        <button class="btn ghost sm" id="import-json-btn">📥 นำเข้า JSON จาก AI</button>
-        <input type="file" id="import-json-input" accept="application/json,.json" style="display:none;">
+        <label class="model-select-field">
+          โมเดล AI
+          <select id="f-gemini-model">${GEMINI_MODELS.map((m) => `<option value="${m.id}" ${m.id === geminiModel ? "selected" : ""}>${escapeHtml(m.label)}</option>`).join("")}</select>
+        </label>
       </div>
       <div class="prompt-helper">
         <div>
           <strong>📷 อัปโหลดรูปบิลให้แอปอ่านเอง</strong>
-          <p>กดปุ่ม “อัปโหลดรูปบิล” แล้วเลือกรูปใบเสร็จ แอปจะส่งรูปให้ Gemini API อ่านและเติมรายการเมนูให้อัตโนมัติ (ตรวจสอบราคาอีกครั้งก่อนไปขั้นต่อไป) ต้องใส่ Gemini API Key ของตัวเองก่อนใช้งานครั้งแรก — คีย์จะถูกเก็บไว้ในเบราว์เซอร์นี้เท่านั้น ไม่ถูกส่งไปที่อื่น</p>
+          <p>กดปุ่ม “อัปโหลดรูปบิล” แล้วเลือกรูปใบเสร็จ แอปจะส่งรูปให้ Gemini API อ่านและเติมรายการเมนูให้อัตโนมัติ (ตรวจสอบราคาอีกครั้งก่อนไปขั้นต่อไป) ถ้าอัปโหลดรูปไม่สำเร็จหรือขึ้นแจ้งเตือนติดลิมิต ให้ลองเปลี่ยน “โมเดล AI” ด้านบนแล้วลองใหม่อีกครั้ง</p>
         </div>
-        <details id="gemini-settings-details">
-          <summary>⚙️ ตั้งค่า AI อ่านบิลอัตโนมัติ (Gemini API Key)</summary>
-          <div class="field"><label>Gemini API Key</label><input type="password" id="f-gemini-key" placeholder="AIza..." value="${escapeHtml((geminiSettings && geminiSettings.apiKey) || "")}"></div>
-          <div class="field"><label>Model</label><input type="text" id="f-gemini-model" placeholder="gemini-2.5-flash" value="${escapeHtml((geminiSettings && geminiSettings.model) || "gemini-2.5-flash")}"></div>
-          <button class="btn ghost sm" id="save-gemini-key-btn">บันทึกคีย์</button>
-          <p style="margin-top:8px;">หาคีย์ได้ฟรีที่ <span style="opacity:.8">aistudio.google.com/apikey</span> — คีย์จะถูกเก็บไว้ใน localStorage ของเบราว์เซอร์นี้เท่านั้น อย่าแชร์หน้าจอที่มีคีย์ปรากฏอยู่</p>
-        </details>
-        <div>
-          <strong>หรือใช้ AI ภายนอกแล้ว import ไฟล์ JSON</strong>
-          <p>กดคัดลอก Prompt แล้วนำไปวางใน Claude, ChatGPT หรือ AI ที่อ่านรูปได้ จากนั้นแนบรูปใบเสร็จและให้ AI ตอบเป็น JSON เท่านั้น บันทึกคำตอบเป็นไฟล์ .json แล้วกด “นำเข้า JSON จาก AI”</p>
-        </div>
-        <details>
-          <summary>ดูรูปแบบ JSON ที่แอปรับ</summary>
-          <pre>{
-  "items": [
-    { "name": "ข้าวผัด", "price": 120 }
-  ],
-  "totalDiscount": 0,
-  "serviceChargePercent": 0,
-  "vatPercent": 0
-}</pre>
-        </details>
       </div>
       <div id="menu-total">${totalLine()}</div>
     `;
@@ -2186,18 +2143,10 @@ Rules:
       body.querySelector("#menu-rows").innerHTML = rowsHtml();
       wireRows();
     };
-    body.querySelector("#copy-receipt-prompt-btn").onclick = async () => {
-      try {
-        await copyText(RECEIPT_READER_PROMPT);
-        toast("คัดลอก English Receipt Prompt แล้ว");
-      } catch (err) {
-        toast("คัดลอก Prompt ไม่สำเร็จ: " + err.message, true);
-      }
-    };
-    // Shared by both the JSON-file import and the AI photo scan below.
-    // Importing/re-scanning the same bill twice (an easy misstep) used to
-    // duplicate every item and silently double the bill total — skip
-    // anything whose name+price already matches an existing row.
+    // Used by the AI photo scan below. Re-scanning the same bill twice (an
+    // easy misstep) used to duplicate every item and silently double the
+    // bill total — skip anything whose name+price already matches an
+    // existing row.
     function mergeParsedMenu(parsed) {
       const list = Array.isArray(parsed) ? parsed : parsed.items;
       if (!Array.isArray(list) || !list.length) throw new Error("ไม่พบรายการเมนู (items)");
@@ -2232,33 +2181,10 @@ Rules:
       wireRows();
       return { added, skipped };
     }
-    body.querySelector("#import-json-btn").onclick = () => body.querySelector("#import-json-input").click();
-    body.querySelector("#import-json-input").onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const parsed = JSON.parse(await file.text());
-        const { added, skipped } = mergeParsedMenu(parsed);
-        toast(`นำเข้าเมนูสำเร็จ ${added} รายการ${skipped ? ` (ข้ามรายการซ้ำ ${skipped} รายการ)` : ""} — ตรวจสอบราคาอีกครั้งก่อนไปขั้นต่อไป`);
-      } catch (err) {
-        toast("นำเข้าไฟล์ไม่สำเร็จ: " + err.message, true);
-      }
-      e.target.value = "";
-    };
-    body.querySelector("#save-gemini-key-btn").onclick = () => {
-      const apiKey = body.querySelector("#f-gemini-key").value.trim();
-      const model = body.querySelector("#f-gemini-model").value.trim() || "gemini-2.5-flash";
-      if (!apiKey) { toast("กรุณาใส่ API Key ก่อนบันทึก", true); return; }
-      saveGeminiSettingsToStorage({ apiKey, model });
-      toast("บันทึก Gemini API Key แล้ว");
+    body.querySelector("#f-gemini-model").onchange = (e) => {
+      saveGeminiModel(e.target.value);
     };
     body.querySelector("#scan-photo-btn").onclick = () => {
-      if (!geminiSettings || !geminiSettings.apiKey) {
-        toast("กรุณาใส่ Gemini API Key ก่อน — ดูหัวข้อ “ตั้งค่า AI อ่านบิลอัตโนมัติ” ด้านล่าง", true);
-        body.querySelector("#gemini-settings-details").open = true;
-        body.querySelector("#f-gemini-key").focus();
-        return;
-      }
       body.querySelector("#scan-photo-input").click();
     };
     body.querySelector("#scan-photo-input").onchange = async (e) => {
