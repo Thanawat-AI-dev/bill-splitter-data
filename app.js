@@ -31,7 +31,7 @@
   // This is a static site (GitHub Pages) — the key is visible to anyone who
   // views the page source. Restrict it by HTTP referrer in Google AI
   // Studio/Cloud Console to limit abuse.
-  const GEMINI_API_KEY = "AQ.Ab8RN6IJaOcoTdhLhK1Vjir0ZtIdc7o80Rr3ZIOTAys7HTHn_Q";
+  const GEMINI_API_KEY = "AQ.Ab8RN6JMmy4HuH6TGRePwa8Rd_fu8KFiui_KdzvElO3_zwJzBg";
   // Selectable models — offered as a dropdown so a user can switch away from
   // one that's hit its free-tier rate limit instead of being stuck. Each
   // option here is a genuinely distinct model (not just aliases of the same
