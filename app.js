@@ -26,54 +26,20 @@
     { key: "split", label: "4. หารบิล" },
     { key: "summary", label: "5. สรุปผล" },
   ];
-  // Shared Gemini API key baked into this build so every user of this
-  // deployment can use AI receipt scanning without supplying their own key.
-  // This is a static site (GitHub Pages) — the key is visible to anyone who
-  // views the page source. Restrict it by HTTP referrer in Google AI
-  // Studio/Cloud Console to limit abuse.
-  const GEMINI_API_KEY = "AQ.Ab8RN6JMmy4HuH6TGRePwa8Rd_fu8KFiui_KdzvElO3_zwJzBg";
+  // AI receipt scanning calls a Cloud Function (scanReceipt, see
+  // functions/index.js) instead of the Gemini API directly — the API key
+  // lives server-side as a Firebase Functions secret and never ships to the
+  // browser. See functions/index.js for the prompt and model allowlist.
   // Selectable models — offered as a dropdown so a user can switch away from
   // one that's hit its free-tier rate limit instead of being stuck. Each
   // option here is a genuinely distinct model (not just aliases of the same
-  // underlying model) so they draw from separate quota buckets.
-  // Verified against the baked-in key above via models.generateContent:
-  // older/pro-tier IDs (gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash,
-  // gemini-pro-latest, gemini-3*-pro-preview) all fail on this key's free
-  // tier — either 404 "no longer available to new users" or 429 with a hard
-  // 0-quota limit. Re-verify with models.generateContent before adding any
-  // model back.
+  // underlying model) so they draw from separate quota buckets. Must match
+  // the ALLOWED_MODELS list in functions/index.js.
   const GEMINI_MODELS = [
     { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash (แนะนำ)" },
     { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite (ลิมิตสูงกว่า)" },
     { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview (สำรอง)" },
   ];
-
-  // Prompt for the direct Gemini API vision call — the model replies with
-  // the JSON object itself in its text response.
-  const RECEIPT_VISION_PROMPT = `You are bill-receipt-reader, a receipt OCR assistant for a bill-splitting web app.
-
-Read the attached receipt/bill image and respond with ONLY a single valid JSON object — no markdown code fences, no explanation, no text before or after — matching exactly this schema:
-{
-  "billName": "",
-  "place": "",
-  "date": "",
-  "totalDiscount": 0,
-  "serviceChargePercent": 0,
-  "vatPercent": 0,
-  "items": [ { "name": "", "price": 0 } ],
-  "notes": []
-}
-
-Rules:
-- billName / place: shop name if readable, else "".
-- date: format YYYY-MM-DD, or "" if unreadable.
-- totalDiscount / serviceChargePercent / vatPercent: plain numbers, no % or currency symbols, 0 if none.
-- items: only food/drink/product line items. Exclude subtotal, total, discount, service charge, VAT, table number, order number, receipt number, and payment method lines.
-- If a line has a quantity (e.g. 2 x 50), use the line total (100), not the unit price.
-- price must be a plain number — no commas, no currency symbols.
-- Never invent items or prices that aren't in the image.
-- If part of a number or word is unclear, use your best reading and add a note in "notes" flagging which item should be double-checked.
-- If the image is not a receipt or cannot be read at all, return the schema above with empty items and a note explaining why.`;
 
   // ---------------------------------------------------------------
   // State
@@ -691,16 +657,18 @@ Rules:
   async function getFirebaseRuntime(config = firebaseSettings) {
     if (!config) throw new Error("ยังไม่ได้ตั้งค่า Firebase");
     if (firebaseRuntime && firebaseRuntime.projectId === config.projectId) return firebaseRuntime;
-    const [{ initializeApp, getApps }, firestore, authMod] = await Promise.all([
+    const [{ initializeApp, getApps }, firestore, authMod, functionsMod] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js"),
       import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js"),
       import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js"),
     ]);
     const appName = `bill-splitter-${config.projectId}`;
     const app = getApps().find((a) => a.name === appName) || initializeApp(config, appName);
     const auth = authMod.getAuth(app);
     const db = firestore.getFirestore(app);
-    firebaseRuntime = { ...firestore, ...authMod, app, auth, db, projectId: config.projectId };
+    const fns = functionsMod.getFunctions(app);
+    firebaseRuntime = { ...firestore, ...authMod, ...functionsMod, app, auth, db, fns, projectId: config.projectId };
     return firebaseRuntime;
   }
 
@@ -2000,10 +1968,8 @@ Rules:
     });
   }
 
-  // --- AI receipt photo reading (calls the Google Gemini API directly from
-  // the browser using the shared key baked into this build — see
-  // GEMINI_API_KEY above. Gemini's generativelanguage endpoint allows
-  // browser (CORS) calls with the key passed as a header) ---
+  // --- AI receipt photo reading (calls the scanReceipt Cloud Function,
+  // which holds the Gemini API key server-side — see functions/index.js) ---
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -2015,7 +1981,8 @@ Rules:
   async function callGeminiReceiptVision(file) {
     // Guard oversized uploads before we spend time encoding + sending: base64
     // inflates ~33% and Gemini's inline-request cap is ~20MB, so reject well
-    // below that with a clear message instead of an opaque HTTP 400.
+    // below that with a clear message instead of an opaque HTTP 400 from the
+    // Cloud Function.
     const MAX_BYTES = 12 * 1024 * 1024; // ~12MB source ≈ ~16MB base64
     if (file.size > MAX_BYTES) {
       throw new Error(`รูปใหญ่เกินไป (${(file.size / 1048576).toFixed(1)}MB) — กรุณาย่อรูปหรือถ่ายใหม่ให้เล็กกว่า ${Math.floor(MAX_BYTES / 1048576)}MB`);
@@ -2023,61 +1990,17 @@ Rules:
     const base64Data = await readFileAsBase64(file);
     const mimeType = file.type || "image/jpeg";
     const model = geminiModel || GEMINI_MODELS[0].id;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-    // fetch has no default timeout — on a stalled mobile connection the request
-    // would hang forever, leaving the scan button disabled with no way to
-    // cancel. Abort after 60s and surface a retryable error instead. The API
-    // key goes in the x-goog-api-key header, not the URL, to keep it out of
-    // proxy/CDN access logs.
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000);
-    let res;
+    const rt = await getFirebaseRuntime();
+    const scanReceipt = rt.httpsCallable(rt.fns, "scanReceipt", { timeout: 60000 });
     try {
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY,
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: mimeType, data: base64Data } },
-              { text: RECEIPT_VISION_PROMPT },
-            ],
-          }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
-        signal: controller.signal,
-      });
+      const res = await scanReceipt({ imageBase64: base64Data, mimeType, model });
+      return res.data;
     } catch (e) {
-      if (e && e.name === "AbortError") {
-        throw new Error("หมดเวลาเชื่อมต่อ AI — เครือข่ายอาจช้า ลองใหม่อีกครั้ง");
-      }
-      throw e;
-    } finally {
-      clearTimeout(timer);
+      // Firebase callable errors carry a human-readable .message (the same
+      // Thai text scanReceipt threw via HttpsError, e.g. the 429 "switch
+      // model" hint) — surface that as-is instead of a generic wrapper.
+      throw new Error(e.message || "เรียก AI ไม่สำเร็จ");
     }
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      // 429 = rate limit / quota exceeded on the selected model — the most
-      // actionable fix is switching to a different model in the dropdown,
-      // so say that explicitly instead of surfacing the raw API error.
-      if (res.status === 429) {
-        throw new Error(`โมเดล "${model}" ติดลิมิตการใช้งานชั่วคราว — กรุณาเปลี่ยนโมเดลในเมนู "โมเดล AI" ด้านล่างแล้วลองใหม่`);
-      }
-      throw new Error((data && data.error && data.error.message) || `เรียก AI ไม่สำเร็จ (HTTP ${res.status})`);
-    }
-    const parts = (((data && data.candidates) || [])[0]?.content?.parts) || [];
-    const textPart = parts.find((p) => typeof p.text === "string");
-    if (!textPart) {
-      const blocked = data && data.promptFeedback && data.promptFeedback.blockReason;
-      throw new Error(blocked ? `AI ปฏิเสธคำขอ (${blocked})` : "AI ไม่ได้ตอบเป็นข้อความ");
-    }
-    let jsonText = textPart.text.trim();
-    const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) jsonText = fenceMatch[1].trim();
-    return JSON.parse(jsonText);
   }
 
   // --- Step 2: menu ---

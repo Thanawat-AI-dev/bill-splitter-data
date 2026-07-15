@@ -63,17 +63,39 @@ firestore.rules     กฎความปลอดภัย Firebase Firestore �
 ## อ่านบิลจากรูปด้วย AI
 
 ในขั้นตอน **2. เมนู** กดปุ่ม **📷 อัปโหลดรูปบิล (AI อ่านให้อัตโนมัติ)** แล้วเลือกรูปใบเสร็จ
-แอปจะส่งรูปให้ Gemini API อ่านและเติมรายการเมนูให้อัตโนมัติ (ควรตรวจสอบราคาอีกครั้งก่อน
-ไปขั้นต่อไป — ถ้าสแกนรูปเดิมซ้ำ ระบบจะข้ามรายการที่ชื่อ+ราคาตรงกับของเดิมให้อัตโนมัติ
-ไม่เพิ่มซ้ำ)
+แอปจะส่งรูปให้ AI อ่านและเติมรายการเมนูให้อัตโนมัติ (ควรตรวจสอบราคาอีกครั้งก่อนไปขั้นต่อไป
+— ถ้าสแกนรูปเดิมซ้ำ ระบบจะข้ามรายการที่ชื่อ+ราคาตรงกับของเดิมให้อัตโนมัติ ไม่เพิ่มซ้ำ)
+เลือก **โมเดล AI** ได้จาก dropdown ข้าง ๆ ปุ่มอัปโหลด ถ้าโมเดลที่เลือกติดลิมิตการใช้งานฟรี
+ให้เปลี่ยนไปโมเดลอื่นในลิสต์แล้วลองใหม่
 
-คีย์ Gemini API ถูกฝังไว้ในแอปแล้ว (ตัวแปร `GEMINI_API_KEY` ใน `app.js`) — ผู้ใช้ทั่วไป
-ไม่ต้องกรอกคีย์เอง เลือก **โมเดล AI** ได้จาก dropdown ข้าง ๆ ปุ่มอัปโหลด ถ้าโมเดลที่เลือก
-ติดลิมิตการใช้งานฟรี (ขึ้น error หรือใช้ไม่ได้) ให้เปลี่ยนไปโมเดลอื่นในลิสต์แล้วลองใหม่
+### สถาปัตยกรรม: Cloud Function proxy (ไม่มีคีย์ในโค้ดที่ deploy)
 
-⚠️ เนื่องจากแอปนี้เป็น static site ที่ deploy ขึ้น GitHub Pages คีย์ที่ฝังไว้จะมองเห็นได้
-โดยทุกคนที่ view page source — ควรตั้งค่าจำกัดคีย์ด้วย HTTP referrer restriction ใน
-Google AI Studio/Cloud Console ให้ใช้ได้เฉพาะโดเมนที่ deploy เท่านั้น
+แอปฝั่งเบราว์เซอร์ **ไม่ได้เรียก Gemini API ตรง ๆ** อีกต่อไป — แทนที่จะฝัง API key ไว้ใน
+`app.js` (ซึ่งมองเห็นได้โดยทุกคนที่ view page source บน static site อย่าง GitHub Pages)
+แอปจะเรียก **Cloud Function ชื่อ `scanReceipt`** (โค้ดอยู่ที่ `functions/index.js`) ซึ่งรัน
+บน Firebase ฝั่งเซิร์ฟเวอร์ ฟังก์ชันนี้เก็บ Gemini API key ไว้เป็น **Firebase Functions
+Secret** (ผ่าน Secret Manager) — คีย์จะไม่ปรากฏใน git repo หรือโค้ดที่ deploy เลย
+
+Function จะปฏิเสธ request ที่ไม่ได้ login (ใช้ Firebase Auth เดียวกับที่แอปใช้อยู่แล้ว)
+และจำกัดโมเดลที่เลือกได้เฉพาะรายการใน `ALLOWED_MODELS` เท่านั้น
+
+### วิธี deploy Cloud Function
+
+1. เปิดใช้แผน **Blaze (pay-as-you-go)** ในโปรเจกต์ Firebase (Cloud Functions ต้องใช้แผนนี้
+   แม้ใช้งานในโควตาฟรีก็ยังต้องเปิดแผนนี้ไว้ — ไปที่ Firebase Console → เปลี่ยนแผน)
+2. ติดตั้ง Firebase CLI: `npm install -g firebase-tools` แล้ว `firebase login`
+3. ตั้งค่าคีย์ลับ (ไม่ถูก commit ขึ้น git):
+   ```
+   firebase functions:secrets:set GEMINI_API_KEY
+   ```
+   (จะถาม prompt ให้วางค่าคีย์ — วางแล้ว Enter)
+4. ติดตั้ง dependency ของฟังก์ชัน: `cd functions && npm install`
+5. Deploy: `firebase deploy --only functions` (รันจาก root ของ repo)
+6. ทดสอบในเบราว์เซอร์ — ปุ่มอัปโหลดรูปบิลควรใช้งานได้โดยไม่ต้องตั้งค่าอะไรเพิ่มฝั่ง client
+
+**หมุนคีย์ในอนาคต**: แค่รัน `firebase functions:secrets:set GEMINI_API_KEY` ใหม่แล้ว
+`firebase deploy --only functions` อีกครั้ง — ไม่ต้องแก้โค้ดหรือ push ขึ้น git เลย เพราะคีย์
+ไม่เคยอยู่ในซอร์สโค้ด
 
 ### ตั้ง Admin
 1. สมัครบัญชีในแอปด้วยอีเมลของ Admin ก่อน
