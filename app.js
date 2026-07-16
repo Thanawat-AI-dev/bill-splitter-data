@@ -958,6 +958,51 @@
     return `${base}#/${parts.join("/")}`;
   }
 
+  // A friendly invite message so a shared link never arrives as a bare URL —
+  // the recipient sees what it is and what to do before tapping.
+  function buildShareMessage(project, link) {
+    const name = (project.name || "").trim();
+    const place = (project.place || "").trim();
+    const date = (project.date || "").trim();
+    const lines = [
+      `🧾 มาหารบิล${name ? ` "${name}"` : ""} กัน!`,
+    ];
+    const meta = [place, date].filter(Boolean).join(" · ");
+    if (meta) lines.push(`📍 ${meta}`);
+    lines.push("👉 กดลิงก์เพื่อติ๊กเมนูที่คุณกิน แล้วดูยอดที่ต้องจ่าย (ไม่ต้องสมัครสมาชิก)");
+    lines.push(link);
+    return lines.join("\n");
+  }
+
+  // Open the OS share sheet when the platform provides one, so "แชร์" shares
+  // the whole invite (text + link), not just a copied URL. Order: the native
+  // Capacitor Share plugin (Android/iOS app) -> Web Share API (mobile web) ->
+  // return false so the caller can fall back to clipboard. A user-cancelled
+  // share counts as handled (true) — we must not then also copy.
+  async function tryNativeShare({ title, text, url }) {
+    try {
+      const cap = window.Capacitor;
+      const SharePlugin = cap && cap.Plugins && cap.Plugins.Share;
+      if (SharePlugin && (!cap.isNativePlatform || cap.isNativePlatform())) {
+        await SharePlugin.share({ title, text, url, dialogTitle: title });
+        return true;
+      }
+    } catch (e) {
+      // Plugin present but the user dismissed the sheet — treat as done.
+      if (e && /cancel|dismiss|abort/i.test(String(e.message || e))) return true;
+    }
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url });
+        return true;
+      }
+    } catch (e) {
+      if (e && (e.name === "AbortError" || /cancel|abort/i.test(String(e.message || e)))) return true;
+      // Any other Web Share failure -> fall through to clipboard.
+    }
+    return false;
+  }
+
   async function shareProjectLink(project = currentProject) {
     // Copy FIRST, before any awaited work. Browsers only honor a clipboard
     // write during the click's transient user activation; an awaited network/DB
@@ -966,18 +1011,26 @@
     // แชร์แล้ว แต่คัดลอกลิงก์ไม่สำเร็จ" case. The link is deterministic from
     // project.id, so it doesn't need the save to finish first. Callers must
     // therefore invoke this BEFORE any await, not after persisting.
-    let link;
+    let link, message;
     try {
       link = buildShareLink(project);
+      message = buildShareMessage(project, link);
     } catch (e) {
       toast(e.message || "สร้างลิงก์แชร์ไม่สำเร็จ", true);
       return;
     }
+    // Prefer the OS share sheet (shares text + link together); only copy the
+    // full invite to the clipboard when no share sheet is available. Both run
+    // BEFORE the persist await so the click's user activation is still valid.
     let copyOk = true;
-    try {
-      await copyText(link);
-    } catch (e) {
-      copyOk = false;
+    let usedShareSheet = false;
+    usedShareSheet = await tryNativeShare({ title: "หารบิล", text: message, url: link });
+    if (!usedShareSheet) {
+      try {
+        await copyText(message);
+      } catch (e) {
+        copyOk = false;
+      }
     }
     // Now persist the shares/doneBy the user just ticked and turn guest access
     // on. persistDraftAndMaybeGithub saves the local draft plus Firebase or
@@ -998,9 +1051,13 @@
       currentProject.guestAccess = true;
       const ok = await persistDraftAndMaybeGithub();
       if (!ok) return;
-      toast(copyOk
-        ? "คัดลอกลิงก์แชร์แล้ว — ทุกคนที่มีลิงก์นี้จะเห็นชื่อและยอดของทุกคนในบิล"
-        : "เปิดการแชร์แล้ว แต่คัดลอกลิงก์ไม่สำเร็จ — แตะลิงก์นี้ค้างเพื่อคัดลอกเอง: " + link, !copyOk);
+      if (usedShareSheet) {
+        toast("เปิดการแชร์แล้ว — เลือกแอปที่จะส่งลิงก์ให้เพื่อนได้เลย");
+      } else {
+        toast(copyOk
+          ? "คัดลอกข้อความชวนหารบิลพร้อมลิงก์แล้ว — วางส่งให้เพื่อนได้เลย ทุกคนที่มีลิงก์จะเห็นชื่อและยอดของทุกคน"
+          : "เปิดการแชร์แล้ว แต่คัดลอกไม่สำเร็จ — แตะลิงก์นี้ค้างเพื่อคัดลอกเอง: " + link, !copyOk);
+      }
     } catch (e) {
       toast("บันทึกการแชร์ไม่สำเร็จ: " + (e.message || ""), true);
     }

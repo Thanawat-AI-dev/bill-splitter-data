@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.thanawat.billsplitter",
+      "sha256_cert_fingerprints": [
+        "5B:94:FA:4D:91:8F:4A:69:CA:28:28:B4:BB:75:42:13:BE:21:3D:B4:21:95:5A:E4:B6:BE:34:F7:43:92:20:09"
+      ]
+    }
+  }
+]

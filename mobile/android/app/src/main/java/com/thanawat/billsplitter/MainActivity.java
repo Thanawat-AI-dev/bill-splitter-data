@@ -1,6 +1,7 @@
 package com.thanawat.billsplitter;
 
 import android.content.ContentValues;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -38,6 +39,10 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         WebView webView = this.bridge.getWebView();
         webView.addJavascriptInterface(new DownloadBridge(), "AndroidDownload");
+        // Cold start from a tapped guest/share link: navigate to that exact
+        // URL (incl. #fragment) so the app routes straight to the guest view
+        // instead of the default home page.
+        loadDeepLink(getIntent());
         webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
             if (url == null) return;
             String filename = URLUtil.guessFileName(url, contentDisposition, mimetype);
@@ -53,6 +58,27 @@ public class MainActivity extends BridgeActivity {
                 webView.post(() -> webView.evaluateJavascript(js, null));
             }
         });
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // singleTask: a link tapped while the app is already running arrives
+        // here instead of onCreate.
+        setIntent(intent);
+        loadDeepLink(intent);
+    }
+
+    /** If launched/resumed by a VIEW intent for our site, load that URL. */
+    private void loadDeepLink(Intent intent) {
+        if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return;
+        Uri data = intent.getData();
+        if (data == null) return;
+        String url = data.toString();
+        if (!url.startsWith("https://thanawat-ai-dev.github.io/bill-splitter-data")) return;
+        WebView webView = this.bridge.getWebView();
+        if (webView == null) return;
+        webView.post(() -> webView.loadUrl(url));
     }
 
     private static String escapeJs(String s) {

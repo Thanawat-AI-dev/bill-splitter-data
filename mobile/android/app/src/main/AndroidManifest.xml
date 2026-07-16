@@ -18,6 +18,20 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Android App Links: open guest/share links to the live site
+                 directly in the app (needs a verified assetlinks.json hosted
+                 at https://thanawat-ai-dev.github.io/.well-known/assetlinks.json).
+                 Routing is hash-based so all app URLs share this path; the app
+                 reads the #fragment and routes to the guest view. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                      android:host="thanawat-ai-dev.github.io"
+                      android:pathPrefix="/bill-splitter-data" />
+            </intent-filter>
         </activity>
 
         <provider
