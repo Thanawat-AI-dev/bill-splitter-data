@@ -507,6 +507,40 @@ body.light-theme .prompt-helper pre { background: rgba(0,0,0,0.06); }
 .badge.warn { background: rgba(251,191,36,0.15); color: var(--warning); }
 .badge.ok { background: rgba(61,220,151,0.15); color: var(--success); }
 
+/* Auth choice screen (register/login picked before email fields appear) */
+.auth-choice { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.auth-choice-btn { width: 100%; padding: 14px; font-size: 0.95rem; }
+.auth-mode-head { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin: 4px 0 14px; }
+.btn.auth-back { padding-left: 0; margin-bottom: 6px; }
+
+/* Guest progress indicator — colored stepper across the guest flow */
+.guest-progress {
+  margin: 0 0 18px; padding: 14px 12px 12px; border-radius: var(--radius-sm);
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+}
+.gp-steps { display: flex; align-items: flex-start; justify-content: space-between; }
+.gp-node { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; width: 64px; text-align: center; }
+.gp-dot {
+  width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700; border: 2px solid var(--border-strong);
+  background: var(--bg-surface-2); color: var(--text-secondary); transition: .2s ease;
+}
+.gp-label { font-size: 0.68rem; line-height: 1.25; color: var(--text-secondary); }
+.gp-line { flex: 1 1 auto; height: 2px; margin: 13px -6px 0; background: var(--border-strong); transition: .2s ease; }
+.gp-line.on { background: var(--success); }
+.gp-node.complete .gp-dot { background: var(--success); border-color: var(--success); color: #06231a; }
+.gp-node.complete .gp-label { color: var(--text-primary); }
+.gp-node.current .gp-dot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 4px var(--accent-soft); }
+.gp-node.current .gp-label { color: var(--text-primary); font-weight: 600; }
+.gp-caption {
+  margin-top: 12px; text-align: center; font-size: 0.82rem; font-weight: 600;
+  padding: 7px 12px; border-radius: 999px;
+}
+.guest-progress[data-stage="check"] .gp-caption { background: var(--accent-soft); color: var(--accent-strong); }
+.guest-progress[data-stage="confirm"] .gp-caption { background: rgba(251,191,36,0.15); color: var(--warning); }
+.guest-progress[data-stage="waiting"] .gp-caption { background: rgba(251,191,36,0.15); color: var(--warning); }
+.guest-progress[data-stage="done"] .gp-caption { background: rgba(61,220,151,0.15); color: var(--success); }
+
 @media print {
   .app-header, .wizard-footer, .icon-btn, #settings-btn, .no-print { display: none !important; }
 }

@@ -1278,7 +1278,33 @@
   // ---------------------------------------------------------------
   function renderAuthGate(returnHash) {
     const root = document.getElementById("view-root");
-    root.innerHTML = `
+    // mode: "choice" -> pick register/login first; "register"/"login" -> show email form
+    let mode = "choice";
+
+    function draw() {
+      const isRegister = mode === "register";
+      const isChoice = mode === "choice";
+      const formHtml = isChoice ? "" : `
+          <form id="auth-form">
+            <button type="button" class="btn ghost sm auth-back" id="auth-back-btn">← ย้อนกลับ</button>
+            <div class="auth-mode-head">${isRegister ? "สมัครบัญชีใหม่" : "เข้าสู่ระบบ"}</div>
+            <div class="field"><label>Email</label><input type="email" inputmode="email" id="auth-email" autocomplete="email" required></div>
+            <div class="field"><label>Password</label><input type="password" id="auth-password" autocomplete="${isRegister ? "new-password" : "current-password"}" required minlength="6"></div>
+            <div class="modal-actions" style="justify-content:flex-start;">
+              <button type="submit" class="btn primary" id="auth-submit-btn">${isRegister ? "สมัครบัญชี" : "เข้าสู่ระบบ"}</button>
+              ${isRegister
+                ? `<button type="button" class="btn ghost" id="auth-switch-btn">มีบัญชีแล้ว? เข้าสู่ระบบ</button>`
+                : `<button type="button" class="btn ghost" id="auth-switch-btn">ยังไม่มีบัญชี? สมัครใหม่</button>`}
+            </div>
+            ${isRegister ? "" : `<button type="button" class="btn ghost sm" id="auth-forgot-btn" style="margin-top:4px;">ลืมรหัสผ่าน?</button>`}
+            <div class="settings-test-result" id="auth-result"></div>
+          </form>`;
+      const choiceHtml = isChoice ? `
+          <div class="auth-choice">
+            <button type="button" class="btn primary auth-choice-btn" id="auth-choose-register">สมัครสมาชิกใหม่</button>
+            <button type="button" class="btn ghost auth-choice-btn" id="auth-choose-login">มีบัญชีแล้ว เข้าสู่ระบบ</button>
+          </div>` : "";
+      root.innerHTML = `
       <div class="auth-shell">
         <div class="card auth-card">
           <div class="section-title">หารบิลอย่างแฟร์ ครบ จบในลิงก์เดียว</div>
@@ -1295,63 +1321,69 @@
             💡 เฉพาะ<strong>เจ้าของบิล</strong>ต้องมีบัญชีเพื่อเก็บโปรเจกต์ไว้ —
             เพื่อนที่กดลิงก์แชร์ <strong>ไม่ต้องสมัครหรือเข้าสู่ระบบ</strong>
           </div>
-          <form id="auth-form">
-            <div class="field"><label>Email</label><input type="email" inputmode="email" id="auth-email" autocomplete="email" required></div>
-            <div class="field"><label>Password</label><input type="password" id="auth-password" autocomplete="current-password" required minlength="6"></div>
-            <div class="modal-actions" style="justify-content:flex-start;">
-              <button type="submit" class="btn primary" id="auth-login-btn">เข้าสู่ระบบ</button>
-              <button type="button" class="btn ghost" id="auth-register-btn">สมัครบัญชีใหม่</button>
-            </div>
-            <button type="button" class="btn ghost sm" id="auth-forgot-btn" style="margin-top:4px;">ลืมรหัสผ่าน?</button>
-            <div class="settings-test-result" id="auth-result"></div>
-          </form>
+          ${choiceHtml}${formHtml}
         </div>
       </div>`;
-    const result = root.querySelector("#auth-result");
-    const emailEl = root.querySelector("#auth-email");
-    const passEl = root.querySelector("#auth-password");
-    async function runAuth(mode) {
-      const email = emailEl.value.trim();
-      const password = passEl.value;
-      if (!email || !password) return;
-      result.textContent = mode === "register" ? "กำลังสมัครบัญชี..." : "กำลังเข้าสู่ระบบ...";
-      result.className = "settings-test-result";
-      try {
-        if (mode === "register") await registerWithEmail(email, password);
-        else await signInWithEmail(email, password);
-        result.textContent = "สำเร็จ";
-        result.className = "settings-test-result ok";
-        navigate(returnHash || "/");
-        router();
-      } catch (e) {
-        result.textContent = "❌ " + friendlyFirebaseError(e);
-        result.className = "settings-test-result fail";
-      }
+      wire();
     }
-    root.querySelector("#auth-form").onsubmit = (e) => {
-      e.preventDefault();
-      runAuth("login");
-    };
-    root.querySelector("#auth-forgot-btn").onclick = async () => {
-      const email = emailEl.value.trim();
-      if (!email) {
-        result.textContent = "❌ กรอกอีเมลก่อนกดลืมรหัสผ่าน";
-        result.className = "settings-test-result fail";
-        emailEl.focus();
+
+    function wire() {
+      if (mode === "choice") {
+        root.querySelector("#auth-choose-register").onclick = () => { mode = "register"; draw(); };
+        root.querySelector("#auth-choose-login").onclick = () => { mode = "login"; draw(); };
         return;
       }
-      result.textContent = "กำลังส่งอีเมลรีเซ็ตรหัสผ่าน...";
-      result.className = "settings-test-result";
-      try {
-        await sendPasswordReset(email);
-        result.textContent = "✅ ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว ตรวจสอบกล่องจดหมายของคุณ";
-        result.className = "settings-test-result ok";
-      } catch (e) {
-        result.textContent = "❌ " + friendlyFirebaseError(e);
-        result.className = "settings-test-result fail";
+      const result = root.querySelector("#auth-result");
+      const emailEl = root.querySelector("#auth-email");
+      const passEl = root.querySelector("#auth-password");
+      emailEl.focus();
+      async function runAuth() {
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+        if (!email || !password) return;
+        result.textContent = mode === "register" ? "กำลังสมัครบัญชี..." : "กำลังเข้าสู่ระบบ...";
+        result.className = "settings-test-result";
+        try {
+          if (mode === "register") await registerWithEmail(email, password);
+          else await signInWithEmail(email, password);
+          result.textContent = "สำเร็จ";
+          result.className = "settings-test-result ok";
+          navigate(returnHash || "/");
+          router();
+        } catch (e) {
+          result.textContent = "❌ " + friendlyFirebaseError(e);
+          result.className = "settings-test-result fail";
+        }
       }
-    };
-    root.querySelector("#auth-register-btn").onclick = () => runAuth("register");
+      root.querySelector("#auth-form").onsubmit = (e) => { e.preventDefault(); runAuth(); };
+      root.querySelector("#auth-back-btn").onclick = () => { mode = "choice"; draw(); };
+      root.querySelector("#auth-switch-btn").onclick = () => {
+        mode = mode === "register" ? "login" : "register";
+        draw();
+      };
+      const forgotBtn = root.querySelector("#auth-forgot-btn");
+      if (forgotBtn) forgotBtn.onclick = async () => {
+        const email = emailEl.value.trim();
+        if (!email) {
+          result.textContent = "❌ กรอกอีเมลก่อนกดลืมรหัสผ่าน";
+          result.className = "settings-test-result fail";
+          emailEl.focus();
+          return;
+        }
+        result.textContent = "กำลังส่งอีเมลรีเซ็ตรหัสผ่าน...";
+        result.className = "settings-test-result";
+        try {
+          await sendPasswordReset(email);
+          result.textContent = "✅ ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว ตรวจสอบกล่องจดหมายของคุณ";
+          result.className = "settings-test-result ok";
+        } catch (e) {
+          result.textContent = "❌ " + friendlyFirebaseError(e);
+          result.className = "settings-test-result fail";
+        }
+      };
+    }
+
+    draw();
   }
 
   function renderGuestSessionError(e) {
@@ -1587,6 +1619,36 @@
       return new Set((currentProject.doneBy || []).filter((id) => validIds.has(id)));
     }
 
+    // Colored step indicator shown across the whole guest flow so a friend
+    // always knows where they are: check menu -> confirm mine -> wait for
+    // friends -> everyone done, pay. `caption` overrides the default status
+    // line (used to inject the live "waiting for N more" count).
+    const GUEST_STAGES = [
+      { key: "check",   label: "เช็ครายละเอียด", icon: "🔍", desc: "กำลังเช็ครายละเอียดเมนูของคุณ" },
+      { key: "confirm", label: "ยืนยันของฉัน",   icon: "✍️", desc: "ตรวจแล้วกดยืนยันรายละเอียดของคุณ" },
+      { key: "waiting", label: "รอเพื่อน",        icon: "⏳", desc: "รอเพื่อนยืนยันให้ครบทุกคน" },
+      { key: "done",    label: "จ่ายเงินได้",     icon: "✅", desc: "ยืนยันครบทุกคนแล้ว จ่ายเงินได้เลย" },
+    ];
+    function guestProgressHtml(stageKey, caption) {
+      const order = GUEST_STAGES.map((s) => s.key);
+      const idx = Math.max(0, order.indexOf(stageKey));
+      let steps = '<div class="gp-steps">';
+      GUEST_STAGES.forEach((st, i) => {
+        if (i > 0) steps += `<div class="gp-line ${i <= idx ? "on" : ""}"></div>`;
+        const state = i < idx ? "complete" : i === idx ? "current" : "upcoming";
+        steps += `<div class="gp-node ${state}">
+          <span class="gp-dot">${i < idx ? "✓" : i + 1}</span>
+          <span class="gp-label">${st.label}</span>
+        </div>`;
+      });
+      steps += "</div>";
+      const cur = GUEST_STAGES[idx];
+      return `<div class="guest-progress" data-stage="${cur.key}">
+        ${steps}
+        <div class="gp-caption">${cur.icon} ${escapeHtml(caption || cur.desc)}</div>
+      </div>`;
+    }
+
     function renderCurrentView() {
       if (currentView.type === "picker") renderGuestNamePicker();
       else if (currentView.type === "split") renderGuestSplit(currentView.personId);
@@ -1630,6 +1692,7 @@
       const hasDup = Object.values(nameCounts).some((c) => c > 1);
       shell(`
         <div class="card guest-card">
+          ${guestProgressHtml("check", "เลือกชื่อของคุณเพื่อเริ่มเช็ครายละเอียดเมนู")}
           <div class="section-title">เลือกชื่อของคุณ</div>
           <div class="section-sub">${escapeHtml(currentProject.name || "โปรเจกต์หารบิล")} · ${escapeHtml(currentProject.place || "")}</div>
           <div class="guest-name-grid">
@@ -1663,6 +1726,7 @@
       const people = p.people.filter((pp) => pp.name.trim());
       shell(`
         <div class="card guest-card">
+          ${guestProgressHtml("check", "ติ๊กเมนูที่คุณกิน แล้วกดยืนยันเมื่อครบ")}
           <div class="toolbar-row">
             <div>
               <div class="section-title">เลือกเมนูของ ${escapeHtml(me.name)}</div>
@@ -1768,8 +1832,22 @@
       const myLines = s.items.filter((it) => it.sharers.includes(personId))
         .map((it) => `<div class="line"><span>${escapeHtml(it.name)}</span><span>฿${baht(it.perPerson)}</span></div>`).join("");
 
+      const iConfirmed = done.has(personId);
+      let stageKey, stageCaption;
+      if (!iConfirmed) {
+        stageKey = "confirm";
+        stageCaption = "ตรวจยอดของคุณ แล้วกดยืนยันการเลือก";
+      } else if (missing > 0) {
+        stageKey = "waiting";
+        stageCaption = `ยืนยันแล้ว · รอเพื่อนอีก ${missing} คน จะอัปเดตให้อัตโนมัติ`;
+      } else {
+        stageKey = "done";
+        stageCaption = "ทุกคนยืนยันครบแล้ว จ่ายเงินได้เลย";
+      }
+
       shell(`
         <div class="card guest-card">
+          ${guestProgressHtml(stageKey, stageCaption)}
           <div class="toolbar-row">
             <div>
               <div class="section-title">${missing ? `สรุปของ ${escapeHtml(me ? me.name : "")}` : "สรุปผลครบแล้ว"}</div>
