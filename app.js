@@ -1785,7 +1785,6 @@
       // may only toggle their own avatar; everyone else's is shown read-only.
       const avatarPalette = ["#e8b84b", "#2dd4bf", "#60a5fa", "#f87171", "#a78bfa", "#34d399", "#fbbf24", "#f472b6"];
       const gColor = (pid) => { const i = people.findIndex((pp) => pp.id === pid); return avatarPalette[(i < 0 ? 0 : i) % avatarPalette.length]; };
-      const gInit = (name) => { const c = [...name.trim()]; return c.length ? c[0].toUpperCase() : "?"; };
       const gPerLabel = (it, cnt) => cnt === 0 ? `ยังไม่มีคนหาร` : `หาร ${cnt} คน (คนละ ฿${baht(it.price / cnt)})`;
       function guestCardsHtml() {
         return items.map((it) => {
@@ -1800,7 +1799,7 @@
               ${people.map((pp) => {
                 const on = sharers.includes(pp.id);
                 const isMe = pp.id === personId;
-                return `<button type="button" class="ppl-avatar${on ? " on" : ""}${isMe ? " me" : " locked"}" ${isMe ? `data-item="${it.id}" data-person="${pp.id}"` : "disabled"} style="--pcolor:${gColor(pp.id)}" aria-pressed="${on}" title="${escapeHtml(pp.name)}${isMe ? " (คุณ)" : ""}">${escapeHtml(gInit(pp.name))}</button>`;
+                return `<button type="button" class="ppl-avatar${on ? " on" : ""}${isMe ? " me" : " locked"}" ${isMe ? `data-item="${it.id}" data-person="${pp.id}"` : "disabled"} style="--pcolor:${gColor(pp.id)}" aria-pressed="${on}" title="${escapeHtml(pp.name)}${isMe ? " (คุณ)" : ""}"><span class="ppl-name">${escapeHtml(pp.name)}${isMe ? " (คุณ)" : ""}</span></button>`;
               }).join("")}
             </div>
           </div>`;
@@ -2459,7 +2458,6 @@
     // reusing the summary chart palette so a person keeps one consistent color).
     const avatarPalette = ["#e8b84b", "#2dd4bf", "#60a5fa", "#f87171", "#a78bfa", "#34d399", "#fbbf24", "#f472b6"];
     function personColor(pid) { const i = people.findIndex((pp) => pp.id === pid); return avatarPalette[(i < 0 ? 0 : i) % avatarPalette.length]; }
-    function personInitial(name) { const c = [...name.trim()]; return c.length ? c[0].toUpperCase() : "?"; }
     function perShareLabel(it, cnt) {
       return cnt === 0
         ? `ยังไม่มีคนหาร`
@@ -2478,7 +2476,7 @@
           <div class="split-card-people">
             ${people.map((pp) => {
               const on = sharers.includes(pp.id);
-              return `<button type="button" class="ppl-avatar${on ? " on" : ""}" data-item="${it.id}" data-person="${pp.id}" style="--pcolor:${personColor(pp.id)}" aria-pressed="${on}" title="${escapeHtml(pp.name)}">${escapeHtml(personInitial(pp.name))}</button>`;
+              return `<button type="button" class="ppl-avatar${on ? " on" : ""}" data-item="${it.id}" data-person="${pp.id}" style="--pcolor:${personColor(pp.id)}" aria-pressed="${on}" title="${escapeHtml(pp.name)}"><span class="ppl-name">${escapeHtml(pp.name)}</span></button>`;
             }).join("")}
           </div>
           <div class="split-card-menu" hidden>
