@@ -1781,6 +1781,49 @@
 
       const items = p.items.filter((it) => it.name.trim());
       const people = p.people.filter((pp) => pp.name.trim());
+      // Mobile card layout helpers — mirror the owner Step 4 cards, but a guest
+      // may only toggle their own avatar; everyone else's is shown read-only.
+      const avatarPalette = ["#e8b84b", "#2dd4bf", "#60a5fa", "#f87171", "#a78bfa", "#34d399", "#fbbf24", "#f472b6"];
+      const gColor = (pid) => { const i = people.findIndex((pp) => pp.id === pid); return avatarPalette[(i < 0 ? 0 : i) % avatarPalette.length]; };
+      const gInit = (name) => { const c = [...name.trim()]; return c.length ? c[0].toUpperCase() : "?"; };
+      const gPerLabel = (it, cnt) => cnt === 0 ? `ยังไม่มีคนหาร` : `หาร ${cnt} คน (คนละ ฿${baht(it.price / cnt)})`;
+      function guestCardsHtml() {
+        return items.map((it) => {
+          const sharers = p.shares[it.id] || [];
+          const cnt = sharers.length;
+          return `<div class="split-card" data-item="${it.id}">
+            <div class="split-card-info">
+              <div class="split-card-name">${escapeHtml(it.name)} <span class="split-card-price">฿${baht(it.price)}</span></div>
+              <div class="split-card-sub ${cnt === 0 ? "zero" : ""}">${gPerLabel(it, cnt)}</div>
+            </div>
+            <div class="split-card-people">
+              ${people.map((pp) => {
+                const on = sharers.includes(pp.id);
+                const isMe = pp.id === personId;
+                return `<button type="button" class="ppl-avatar${on ? " on" : ""}${isMe ? " me" : " locked"}" ${isMe ? `data-item="${it.id}" data-person="${pp.id}"` : "disabled"} style="--pcolor:${gColor(pp.id)}" aria-pressed="${on}" title="${escapeHtml(pp.name)}${isMe ? " (คุณ)" : ""}">${escapeHtml(gInit(pp.name))}</button>`;
+              }).join("")}
+            </div>
+          </div>`;
+        }).join("");
+      }
+      // Re-sync one item's card + my table checkbox from the freshly-saved
+      // currentProject (updateGuestProjectFirebase swaps it for a new object).
+      function syncGuestItem(itemId) {
+        const cp = currentProject;
+        const it = (cp.items || []).find((x) => x.id === itemId) || items.find((x) => x.id === itemId);
+        const sharers = (cp.shares && cp.shares[itemId]) || [];
+        const cnt = sharers.length;
+        const on = sharers.includes(personId);
+        const cb = root.querySelector(`.matrix input[type=checkbox][data-item="${itemId}"][data-person="${personId}"]`);
+        if (cb) cb.checked = on;
+        const card = root.querySelector(`.split-card[data-item="${itemId}"]`);
+        if (card) {
+          const av = card.querySelector(`.ppl-avatar[data-person="${personId}"]`);
+          if (av) { av.classList.toggle("on", on); av.setAttribute("aria-pressed", on ? "true" : "false"); }
+          const sub = card.querySelector(".split-card-sub");
+          if (sub && it) { sub.textContent = gPerLabel(it, cnt); sub.classList.toggle("zero", cnt === 0); }
+        }
+      }
       shell(`
         <div class="card guest-card">
           ${guestProgressHtml("check", "ติ๊กเมนูที่คุณกิน แล้วกดยืนยันเมื่อครบ")}
@@ -1807,6 +1850,7 @@
               </tr>`;
             }).join("")}</tbody>
           </table></div>
+          <div class="split-cards">${guestCardsHtml()}</div>
           <div class="wizard-footer">
             <button class="btn ghost" id="guest-preview">ดูสรุปของฉัน</button>
             <button class="btn primary" id="guest-confirm">✅ ยืนยันการเลือก</button>
@@ -1820,43 +1864,54 @@
         renderGuestNamePicker();
       };
       root.querySelector("#guest-preview").onclick = () => renderGuestSummary(personId);
-      root.querySelectorAll(`input[type=checkbox][data-person="${personId}"]`).forEach((cb) => {
-        cb.onchange = async () => {
-          cb.disabled = true;
-          const itemId = cb.dataset.item;
-          const checked = cb.checked;
-          try {
-            await updateGuestProjectFirebase(projectId, (project) => {
-              project.shares[itemId] = project.shares[itemId] || [];
-              if (checked) {
-                if (!project.shares[itemId].includes(personId)) project.shares[itemId].push(personId);
-              } else {
-                project.shares[itemId] = project.shares[itemId].filter((pid) => pid !== personId);
-                project.doneBy = (project.doneBy || []).filter((pid) => pid !== personId);
-              }
-            }, `guest ${me.name} update shares`, firebaseSettings);
-            guestSyncError = null;
-            // A toast on every single tick was noisy, especially combined
-            // with the realtime re-renders while several guests are ticking
-            // at once — show a quiet inline indicator instead and reserve
-            // the toast for actual errors.
-            const indicator = root.querySelector("#guest-save-indicator");
-            if (indicator) {
-              indicator.textContent = "✓ บันทึกอัตโนมัติ";
-              indicator.classList.add("show");
-              clearTimeout(indicator._t);
-              indicator._t = setTimeout(() => indicator.classList.remove("show"), 1800);
+      // Toggle my share for one item, from either the desktop checkbox or the
+      // mobile card avatar. Both controls for the item are disabled during the
+      // save and re-synced (or rolled back) when it resolves.
+      async function commitGuestToggle(itemId, checked, controls) {
+        controls.forEach((el) => { if (el) el.disabled = true; });
+        try {
+          await updateGuestProjectFirebase(projectId, (project) => {
+            project.shares[itemId] = project.shares[itemId] || [];
+            if (checked) {
+              if (!project.shares[itemId].includes(personId)) project.shares[itemId].push(personId);
+            } else {
+              project.shares[itemId] = project.shares[itemId].filter((pid) => pid !== personId);
+              project.doneBy = (project.doneBy || []).filter((pid) => pid !== personId);
             }
-          } catch (e) {
-            cb.checked = !checked;
-            guestSyncError = e.message || "บันทึกไม่สำเร็จ";
-            toast("บันทึกไม่สำเร็จ: " + guestSyncError, true);
-            renderGuestSplit(personId);
-            return;
-          } finally {
-            cb.disabled = false;
+          }, `guest ${me.name} update shares`, firebaseSettings);
+          guestSyncError = null;
+          syncGuestItem(itemId);
+          // A toast on every single tick was noisy, especially combined
+          // with the realtime re-renders while several guests are ticking
+          // at once — show a quiet inline indicator instead and reserve
+          // the toast for actual errors.
+          const indicator = root.querySelector("#guest-save-indicator");
+          if (indicator) {
+            indicator.textContent = "✓ บันทึกอัตโนมัติ";
+            indicator.classList.add("show");
+            clearTimeout(indicator._t);
+            indicator._t = setTimeout(() => indicator.classList.remove("show"), 1800);
           }
-        };
+        } catch (e) {
+          guestSyncError = e.message || "บันทึกไม่สำเร็จ";
+          toast("บันทึกไม่สำเร็จ: " + guestSyncError, true);
+          renderGuestSplit(personId);
+          return;
+        } finally {
+          controls.forEach((el) => { if (el && el.isConnected) el.disabled = false; });
+        }
+      }
+      function itemControls(itemId) {
+        return [
+          root.querySelector(`.matrix input[type=checkbox][data-item="${itemId}"][data-person="${personId}"]`),
+          root.querySelector(`.split-card[data-item="${itemId}"] .ppl-avatar[data-person="${personId}"]`),
+        ];
+      }
+      root.querySelectorAll(`.matrix input[type=checkbox][data-person="${personId}"]`).forEach((cb) => {
+        cb.onchange = () => commitGuestToggle(cb.dataset.item, cb.checked, itemControls(cb.dataset.item));
+      });
+      root.querySelectorAll(`.split-card .ppl-avatar.me[data-person="${personId}"]`).forEach((av) => {
+        av.onclick = () => commitGuestToggle(av.dataset.item, !av.classList.contains("on"), itemControls(av.dataset.item));
       });
       root.querySelector("#guest-confirm").onclick = (e) => withButtonPending(e.currentTarget, "กำลังยืนยัน...", async () => {
         try {
@@ -2400,6 +2455,39 @@
     const people = p.people.filter((pp) => pp.name.trim());
 
     function countFor(itemId) { return (p.shares[itemId] || []).length; }
+    // Colors + initials for the mobile card avatars (indexed by person order,
+    // reusing the summary chart palette so a person keeps one consistent color).
+    const avatarPalette = ["#e8b84b", "#2dd4bf", "#60a5fa", "#f87171", "#a78bfa", "#34d399", "#fbbf24", "#f472b6"];
+    function personColor(pid) { const i = people.findIndex((pp) => pp.id === pid); return avatarPalette[(i < 0 ? 0 : i) % avatarPalette.length]; }
+    function personInitial(name) { const c = [...name.trim()]; return c.length ? c[0].toUpperCase() : "?"; }
+    function perShareLabel(it, cnt) {
+      return cnt === 0
+        ? `ยังไม่มีคนหาร`
+        : `หาร ${cnt} คน (คนละ ฿${baht(it.price / cnt)})`;
+    }
+    function cardsHtml() {
+      return items.map((it) => {
+        const sharers = p.shares[it.id] || [];
+        const cnt = sharers.length;
+        return `<div class="split-card" data-item="${it.id}">
+          <button type="button" class="split-card-menu-btn" data-item="${it.id}" aria-label="ตัวเลือกเมนูนี้" aria-haspopup="true" aria-expanded="false">⋮</button>
+          <div class="split-card-info">
+            <div class="split-card-name">${escapeHtml(it.name)} <span class="split-card-price">฿${baht(it.price)}</span></div>
+            <div class="split-card-sub ${cnt === 0 ? "zero" : ""}">${perShareLabel(it, cnt)}</div>
+          </div>
+          <div class="split-card-people">
+            ${people.map((pp) => {
+              const on = sharers.includes(pp.id);
+              return `<button type="button" class="ppl-avatar${on ? " on" : ""}" data-item="${it.id}" data-person="${pp.id}" style="--pcolor:${personColor(pp.id)}" aria-pressed="${on}" title="${escapeHtml(pp.name)}">${escapeHtml(personInitial(pp.name))}</button>`;
+            }).join("")}
+          </div>
+          <div class="split-card-menu" hidden>
+            <button type="button" class="scm-item scm-all" data-item="${it.id}">✓ ทุกคนหารเมนูนี้</button>
+            <button type="button" class="scm-item scm-clear" data-item="${it.id}">✕ ล้างคนหาร</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
     function tableHtml() {
       return `<div class="matrix-wrap"><table class="matrix">
         <thead><tr><th class="item-name-th">เมนู</th><th>ราคา</th><th>ทุกคน</th>${people.map((pp) => `<th>${escapeHtml(pp.name)}</th>`).join("")}<th>หาร/คน</th></tr></thead>
@@ -2416,9 +2504,35 @@
           </tr>`;
         }).join("")}</tbody>
       </table></div>
+      <div class="split-cards">${cardsHtml()}</div>
       <div style="margin-top:14px; display:flex; gap:10px;">
         <button class="btn ghost sm" id="select-all-btn">✓ ทุกคนหารทุกเมนูเท่ากัน</button>
       </div>`;
+    }
+    // Re-sync every DOM reflection of one item (desktop table row + mobile card)
+    // from p.shares, so a toggle in either layout keeps both in agreement.
+    function syncItemViews(itemId) {
+      const it = items.find((x) => x.id === itemId);
+      const cnt = countFor(itemId);
+      const sharers = p.shares[itemId] || [];
+      const row = body.querySelector(`tr[data-item="${itemId}"]`);
+      if (row) {
+        row.querySelectorAll('input[type=checkbox][data-person]').forEach((pcb) => { pcb.checked = sharers.includes(pcb.dataset.person); });
+        const tag = row.querySelector(".share-count-tag");
+        if (tag) { tag.textContent = `${cnt} คน`; tag.classList.toggle("zero", cnt === 0); }
+        const allCb = row.querySelector(".row-all-cb");
+        if (allCb) allCb.checked = people.length > 0 && cnt === people.length;
+      }
+      const card = body.querySelector(`.split-card[data-item="${itemId}"]`);
+      if (card) {
+        card.querySelectorAll(".ppl-avatar").forEach((av) => {
+          const on = sharers.includes(av.dataset.person);
+          av.classList.toggle("on", on);
+          av.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        const sub = card.querySelector(".split-card-sub");
+        if (sub && it) { sub.textContent = perShareLabel(it, cnt); sub.classList.toggle("zero", cnt === 0); }
+      }
     }
 
     body.innerHTML = `
@@ -2434,34 +2548,60 @@
     body.querySelector("#share-link-btn").onclick = (e) => withButtonPending(e.currentTarget, "📤 กำลังเตรียมลิงก์...", () => shareProjectLink(p));
     function wire() {
       wireCellClickToggle(body);
+      function togglePerson(itemId, personId, on) {
+        p.shares[itemId] = p.shares[itemId] || [];
+        if (on) {
+          if (!p.shares[itemId].includes(personId)) p.shares[itemId].push(personId);
+        } else {
+          p.shares[itemId] = p.shares[itemId].filter((x) => x !== personId);
+        }
+        syncItemViews(itemId);
+      }
       body.querySelectorAll('input[type=checkbox][data-item][data-person]').forEach((cb) => {
-        cb.onchange = () => {
-          const itemId = cb.dataset.item, personId = cb.dataset.person;
-          p.shares[itemId] = p.shares[itemId] || [];
-          if (cb.checked) {
-            if (!p.shares[itemId].includes(personId)) p.shares[itemId].push(personId);
-          } else {
-            p.shares[itemId] = p.shares[itemId].filter((x) => x !== personId);
-          }
-          const row = cb.closest("tr");
-          const cnt = p.shares[itemId].length;
-          const tag = row.querySelector(".share-count-tag");
-          tag.textContent = `${cnt} คน`;
-          tag.classList.toggle("zero", cnt === 0);
-          const allCb = row.querySelector(".row-all-cb");
-          if (allCb) allCb.checked = people.length > 0 && cnt === people.length;
+        cb.onchange = () => togglePerson(cb.dataset.item, cb.dataset.person, cb.checked);
+      });
+      body.querySelectorAll('.ppl-avatar').forEach((av) => {
+        av.onclick = () => togglePerson(av.dataset.item, av.dataset.person, !av.classList.contains("on"));
+      });
+      // Per-card ⋮ menu: bulk "everyone"/"clear" for one item — keeps the parity
+      // with the desktop table's per-row "ทุกคน" column on the mobile card layout.
+      function closeCardMenus(except) {
+        body.querySelectorAll('.split-card-menu').forEach((m) => {
+          if (m === except) return;
+          m.hidden = true;
+          const btn = m.parentElement.querySelector('.split-card-menu-btn');
+          if (btn) btn.setAttribute("aria-expanded", "false");
+        });
+      }
+      body.querySelectorAll('.split-card-menu-btn').forEach((btn) => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const menu = btn.parentElement.querySelector('.split-card-menu');
+          const willOpen = menu.hidden;
+          closeCardMenus(willOpen ? menu : null);
+          menu.hidden = !willOpen;
+          btn.setAttribute("aria-expanded", willOpen ? "true" : "false");
         };
       });
+      body.querySelectorAll('.scm-all').forEach((b) => {
+        b.onclick = (e) => { e.stopPropagation(); p.shares[b.dataset.item] = people.map((pp) => pp.id); syncItemViews(b.dataset.item); closeCardMenus(null); };
+      });
+      body.querySelectorAll('.scm-clear').forEach((b) => {
+        b.onclick = (e) => { e.stopPropagation(); p.shares[b.dataset.item] = []; syncItemViews(b.dataset.item); closeCardMenus(null); };
+      });
+      // Close open menus when tapping elsewhere in the step. Scoped to `body`
+      // (recreated each render) rather than `document`, so the listener dies
+      // with the element and doesn't leak across step navigations. Menu/⋮
+      // clicks call stopPropagation, so this only fires for outside taps.
+      if (!body._cardMenuOutside) {
+        body._cardMenuOutside = true;
+        body.addEventListener("click", () => closeCardMenus(null));
+      }
       body.querySelectorAll('.row-all-cb').forEach((cb) => {
         cb.onchange = () => {
           const itemId = cb.dataset.item;
           p.shares[itemId] = cb.checked ? people.map((pp) => pp.id) : [];
-          const row = cb.closest("tr");
-          row.querySelectorAll('input[type=checkbox][data-person]').forEach((pcb) => { pcb.checked = cb.checked; });
-          const cnt = p.shares[itemId].length;
-          const tag = row.querySelector(".share-count-tag");
-          tag.textContent = `${cnt} คน`;
-          tag.classList.toggle("zero", cnt === 0);
+          syncItemViews(itemId);
         };
       });
       const selAll = body.querySelector("#select-all-btn");

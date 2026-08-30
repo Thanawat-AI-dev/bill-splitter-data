@@ -331,6 +331,62 @@ table.matrix td:has(input[type="checkbox"]) { padding: 14px 10px; }
 .share-count-tag { font-size: 0.78rem; padding: 3px 9px; border-radius: 999px; background: var(--teal-soft); color: var(--teal); font-weight: 600; }
 .share-count-tag.zero { background: rgba(247,112,102,0.15); color: var(--danger); }
 
+/* Split cards — the mobile-only card layout for "who ate what". The matrix
+   table is fine on wide screens but cramped on phones, so below 720px we hide
+   the table and show one card per menu item with tappable person avatars. */
+.split-cards { display: none; flex-direction: column; gap: 12px; }
+.split-card {
+  position: relative;
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--bg-surface-2); border: 1px solid var(--border-color);
+  border-radius: var(--radius-md); padding: 14px 16px;
+}
+.split-card-info { min-width: 0; padding-right: 34px; }
+.split-card-name { font-weight: 700; font-size: 1rem; line-height: 1.35; }
+.split-card-price { font-family: var(--font-mono); color: var(--accent); font-weight: 700; white-space: nowrap; }
+.split-card-sub { font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px; }
+.split-card-sub.zero { color: var(--danger); }
+.split-card-people { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+.ppl-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--pcolor, var(--accent)); background: transparent;
+  color: var(--text-secondary); font-family: var(--font-body); font-weight: 700; font-size: 0.95rem;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: background .15s ease, color .15s ease, transform .1s ease;
+}
+.ppl-avatar:active { transform: scale(0.92); }
+.ppl-avatar.on { background: var(--pcolor, var(--accent)); color: #fff; border-color: var(--pcolor, var(--accent)); }
+/* Guest split: only my own avatar is interactive; the rest are read-only. */
+.ppl-avatar.me { box-shadow: 0 0 0 3px var(--accent-soft); }
+.ppl-avatar.locked { opacity: 0.42; cursor: not-allowed; }
+.ppl-avatar.locked:active { transform: none; }
+/* Per-card ⋮ options menu (bulk everyone / clear) */
+.split-card-menu-btn {
+  position: absolute; top: 8px; right: 8px;
+  width: 32px; height: 32px; border-radius: 8px;
+  border: none; background: transparent; color: var(--text-secondary);
+  font-size: 1.2rem; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.split-card-menu-btn:hover { background: var(--bg-surface); color: var(--text-primary); }
+.split-card-menu {
+  position: absolute; top: 40px; right: 8px; z-index: 20;
+  background: var(--bg-surface-2); border: 1px solid var(--border-color);
+  border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+  padding: 6px; min-width: 172px; display: flex; flex-direction: column; gap: 2px;
+}
+.scm-item {
+  border: none; background: transparent; color: var(--text-primary);
+  text-align: left; padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  font-family: var(--font-body); font-size: 0.88rem;
+}
+.scm-item:hover { background: var(--accent-soft); }
+.scm-clear { color: var(--danger); }
+@media (max-width: 720px) {
+  .matrix-wrap { display: none; }
+  .split-cards { display: flex; }
+}
+
 /* Guest self-select */
 .guest-shell { max-width: 1000px; margin: 0 auto; }
 .guest-card { margin-bottom: 18px; }
